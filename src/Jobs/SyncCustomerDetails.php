@@ -40,6 +40,6 @@ class SyncCustomerDetails implements ShouldQueue
      */
     public function handle()
     {
-        $this->billable->syncStripeCustomerDetails();
+        $this->billable->syncSquareCustomerDetails();
     }
 }

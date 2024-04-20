@@ -47,7 +47,7 @@ class SubscriptionsTest extends FeatureTestCase
 
     public static function setUpBeforeClass(): void
     {
-        if (! getenv('STRIPE_SECRET')) {
+        if (! getenv('SQUARE_ACCESS_TOKEN')) {
             return;
         }
 

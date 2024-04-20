@@ -12,7 +12,7 @@ class CheckoutBuilder
     use HandlesTaxes;
 
     /**
-     * The Stripe model instance.
+     * The Square model instance.
      *
      * @var \Illuminate\Database\Eloquent\Model|null
      */

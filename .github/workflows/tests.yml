@@ -45,4 +45,4 @@ jobs:
       - name: Execute tests
         run: vendor/bin/phpunit
         env:
-          STRIPE_SECRET: ${{ secrets.STRIPE_SECRET }}
+          SQUARE_ACCESS_TOKEN: ${{ secrets.SQUARE_ACCESS_TOKEN }}

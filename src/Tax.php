@@ -2,7 +2,8 @@
 
 namespace Laravel\Cashier;
 
-use Stripe\TaxRate as StripeTaxRate;
+use Square\Models\Money;
+use Square\Models\Tax;
 
 class Tax
 {
@@ -21,25 +22,25 @@ class Tax
     protected $currency;
 
     /**
-     * The Stripe TaxRate object.
+     * The Square Tax object.
      *
-     * @var \Stripe\TaxRate
+     * @var \Square\Models\Tax
      */
-    protected $taxRate;
+    protected $tax;
 
     /**
      * Create a new Tax instance.
      *
      * @param  int  $amount
      * @param  string  $currency
-     * @param  \Stripe\TaxRate  $taxRate
+     * @param  \Square\Models\Tax  $tax
      * @return void
      */
-    public function __construct($amount, $currency, StripeTaxRate $taxRate)
+    public function __construct($amount, $currency, Tax $tax)
     {
         $this->amount = $amount;
         $this->currency = $currency;
-        $this->taxRate = $taxRate;
+        $this->tax = $tax;
     }
 
     /**
@@ -90,25 +91,29 @@ class Tax
      */
     public function isInclusive()
     {
-        return $this->taxRate->inclusive;
+        return $this->tax->getInclusionType() === 'INCLUSIVE';
     }
 
     /**
-     * @return \Stripe\TaxRate
+     * @return \Square\Models\Tax
      */
-    public function taxRate()
+    public function tax()
     {
-        return $this->taxRate;
+        return $this->tax;
     }
 
     /**
-     * Dynamically get values from the Stripe object.
+     * Dynamically get values from the Square object.
      *
      * @param  string  $key
      * @return mixed
      */
     public function __get($key)
     {
-        return $this->taxRate->{$key};
+        $method = 'get' . ucfirst($key);
+        if (method_exists($this->tax, $method)) {
+            return $this->tax->{$method}();
+        }
+        return null;
     }
 }

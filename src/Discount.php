@@ -6,24 +6,24 @@ use Carbon\Carbon;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Contracts\Support\Jsonable;
 use JsonSerializable;
-use Stripe\Discount as StripeDiscount;
+use Square\Models\Discount as SquareDiscount;
 
 class Discount implements Arrayable, Jsonable, JsonSerializable
 {
     /**
-     * The Stripe Discount instance.
+     * The Square Discount instance.
      *
-     * @var \Stripe\Discount
+     * @var \Square\Models\Discount
      */
     protected $discount;
 
     /**
      * Create a new Discount instance.
      *
-     * @param  \Stripe\Discount  $discount
+     * @param  \Square\Models\Discount  $discount
      * @return void
      */
-    public function __construct(StripeDiscount $discount)
+    public function __construct(SquareDiscount $discount)
     {
         $this->discount = $discount;
     }
@@ -35,7 +35,7 @@ class Discount implements Arrayable, Jsonable, JsonSerializable
      */
     public function coupon()
     {
-        return new Coupon($this->discount->coupon);
+        return new Coupon($this->discount->getCoupon());
     }
 
     /**
@@ -45,8 +45,9 @@ class Discount implements Arrayable, Jsonable, JsonSerializable
      */
     public function promotionCode()
     {
-        if (! is_null($this->discount->promotion_code) && ! is_string($this->discount->promotion_code)) {
-            return new PromotionCode($this->discount->promotion_code);
+        $promotionCode = $this->discount->getPromotionCode();
+        if (! is_null($promotionCode)) {
+            return new PromotionCode($promotionCode);
         }
     }
 
@@ -57,7 +58,7 @@ class Discount implements Arrayable, Jsonable, JsonSerializable
      */
     public function start()
     {
-        return Carbon::createFromTimestamp($this->discount->start);
+        return Carbon::createFromTimestamp($this->discount->getStartAt());
     }
 
     /**
@@ -67,17 +68,18 @@ class Discount implements Arrayable, Jsonable, JsonSerializable
      */
     public function end()
     {
-        if (! is_null($this->discount->end)) {
-            return Carbon::createFromTimestamp($this->discount->end);
+        $endAt = $this->discount->getEndAt();
+        if (! is_null($endAt)) {
+            return Carbon::createFromTimestamp($endAt);
         }
     }
 
     /**
-     * Get the Stripe Discount instance.
+     * Get the Square Discount instance.
      *
-     * @return \Stripe\Discount
+     * @return \Square\Models\Discount
      */
-    public function asStripeDiscount()
+    public function asSquareDiscount()
     {
         return $this->discount;
     }
@@ -89,7 +91,7 @@ class Discount implements Arrayable, Jsonable, JsonSerializable
      */
     public function toArray()
     {
-        return $this->asStripeDiscount()->toArray();
+        return $this->asSquareDiscount()->jsonSerialize();
     }
 
     /**
@@ -115,13 +117,13 @@ class Discount implements Arrayable, Jsonable, JsonSerializable
     }
 
     /**
-     * Dynamically get values from the Stripe object.
+     * Dynamically get values from the Square object.
      *
      * @param  string  $key
      * @return mixed
      */
     public function __get($key)
     {
-        return $this->discount->{$key};
+        return $this->discount->{"get".ucfirst($key)}();
     }
 }

@@ -3,21 +3,21 @@
 namespace Laravel\Cashier;
 
 use Laravel\Cashier\Exceptions\InvalidCustomerBalanceTransaction;
-use Stripe\CustomerBalanceTransaction as StripeCustomerBalanceTransaction;
+use Square\Models\CustomerBalanceTransaction as SquareCustomerBalanceTransaction;
 
 class CustomerBalanceTransaction
 {
     /**
-     * The Stripe model instance.
+     * The Square model instance.
      *
      * @var \Illuminate\Database\Eloquent\Model
      */
     protected $owner;
 
     /**
-     * The Stripe CustomerBalanceTransaction instance.
+     * The Square CustomerBalanceTransaction instance.
      *
-     * @var \Stripe\CustomerBalanceTransaction
+     * @var \Square\Models\CustomerBalanceTransaction
      */
     protected $transaction;
 
@@ -25,14 +25,14 @@ class CustomerBalanceTransaction
      * Create a new CustomerBalanceTransaction instance.
      *
      * @param  \Illuminate\Database\Eloquent\Model  $owner
-     * @param  \Stripe\CustomerBalanceTransaction  $transaction
+     * @param  \Square\Models\CustomerBalanceTransaction  $transaction
      * @return void
      *
      * @throws \Laravel\Cashier\Exceptions\InvalidCustomerBalanceTransaction
      */
-    public function __construct($owner, StripeCustomerBalanceTransaction $transaction)
+    public function __construct($owner, SquareCustomerBalanceTransaction $transaction)
     {
-        if ($owner->stripe_id !== $transaction->customer) {
+        if ($owner->square_id !== $transaction->getCustomerId()) {
             throw InvalidCustomerBalanceTransaction::invalidOwner($transaction, $owner);
         }
 
@@ -57,7 +57,7 @@ class CustomerBalanceTransaction
      */
     public function rawAmount()
     {
-        return $this->transaction->amount;
+        return $this->transaction->getAmountMoney()->getAmount();
     }
 
     /**
@@ -77,7 +77,7 @@ class CustomerBalanceTransaction
      */
     public function rawEndingBalance()
     {
-        return $this->transaction->ending_balance;
+        return $this->transaction->getEndingBalanceMoney()->getAmount();
     }
 
     /**
@@ -88,7 +88,7 @@ class CustomerBalanceTransaction
      */
     protected function formatAmount($amount)
     {
-        return Cashier::formatAmount($amount, $this->transaction->currency);
+        return Cashier::formatAmount($amount, $this->transaction->getAmountMoney()->getCurrency());
     }
 
     /**
@@ -98,17 +98,17 @@ class CustomerBalanceTransaction
      */
     public function invoice()
     {
-        return $this->transaction->invoice
-            ? $this->owner->findInvoice($this->transaction->invoice)
+        return $this->transaction->getInvoiceId()
+            ? $this->owner->findInvoice($this->transaction->getInvoiceId())
             : null;
     }
 
     /**
-     * Get the Stripe CustomerBalanceTransaction instance.
+     * Get the Square CustomerBalanceTransaction instance.
      *
-     * @return \Stripe\CustomerBalanceTransaction
+     * @return \Square\Models\CustomerBalanceTransaction
      */
-    public function asStripeCustomerBalanceTransaction()
+    public function asSquareCustomerBalanceTransaction()
     {
         return $this->transaction;
     }
@@ -120,7 +120,7 @@ class CustomerBalanceTransaction
      */
     public function toArray()
     {
-        return $this->asStripeCustomerBalanceTransaction()->toArray();
+        return $this->asSquareCustomerBalanceTransaction()->jsonSerialize();
     }
 
     /**
@@ -146,13 +146,13 @@ class CustomerBalanceTransaction
     }
 
     /**
-     * Dynamically get values from the Stripe object.
+     * Dynamically get values from the Square object.
      *
      * @param  string  $key
      * @return mixed
      */
     public function __get($key)
     {
-        return $this->transaction->{$key};
+        return $this->transaction->{'get'.ucfirst($key)}();
     }
 }

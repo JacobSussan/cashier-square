@@ -5,26 +5,26 @@ namespace Laravel\Cashier;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Contracts\Support\Jsonable;
 use JsonSerializable;
-use Stripe\PromotionCode as StripePromotionCode;
+use Square\Models\Promotion as SquarePromotion;
 
 class PromotionCode implements Arrayable, Jsonable, JsonSerializable
 {
     /**
-     * The Stripe PromotionCode instance.
+     * The Square Promotion instance.
      *
-     * @var \Stripe\PromotionCode
+     * @var \Square\Models\Promotion
      */
-    protected $promotionCode;
+    protected $promotion;
 
     /**
      * Create a new PromotionCode instance.
      *
-     * @param  \Stripe\PromotionCode  $promotionCode
+     * @param  \Square\Models\Promotion  $promotion
      * @return void
      */
-    public function __construct(StripePromotionCode $promotionCode)
+    public function __construct(SquarePromotion $promotion)
     {
-        $this->promotionCode = $promotionCode;
+        $this->promotion = $promotion;
     }
 
     /**
@@ -34,17 +34,18 @@ class PromotionCode implements Arrayable, Jsonable, JsonSerializable
      */
     public function coupon()
     {
-        return new Coupon($this->promotionCode->coupon);
+        // Assuming there's a similar method to get a coupon from a promotion in Square
+        return new Coupon($this->promotion->getCoupon());
     }
 
     /**
-     * Get the Stripe PromotionCode instance.
+     * Get the Square Promotion instance.
      *
-     * @return \Stripe\PromotionCode
+     * @return \Square\Models\Promotion
      */
-    public function asStripePromotionCode()
+    public function asSquarePromotion()
     {
-        return $this->promotionCode;
+        return $this->promotion;
     }
 
     /**
@@ -54,7 +55,8 @@ class PromotionCode implements Arrayable, Jsonable, JsonSerializable
      */
     public function toArray()
     {
-        return $this->asStripePromotionCode()->toArray();
+        // Assuming there's a similar method to convert a promotion to an array in Square
+        return $this->asSquarePromotion()->toArray();
     }
 
     /**
@@ -80,13 +82,14 @@ class PromotionCode implements Arrayable, Jsonable, JsonSerializable
     }
 
     /**
-     * Dynamically get values from the Stripe object.
+     * Dynamically get values from the Square object.
      *
      * @param  string  $key
      * @return mixed
      */
     public function __get($key)
     {
-        return $this->promotionCode->{$key};
+        // Assuming the Square SDK provides a similar dynamic property access
+        return $this->promotion->{$key};
     }
 }

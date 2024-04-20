@@ -21,7 +21,7 @@ trait HandlesTaxes
     public $estimationBillingAddress = [];
 
     /**
-     * Indicates if Tax IDs should be collected during a Stripe Checkout session.
+     * Indicates if Tax IDs should be collected during a Square Checkout session.
      *
      * @var bool
      */
@@ -59,7 +59,7 @@ trait HandlesTaxes
     }
 
     /**
-     * Get the payload for Stripe automatic tax calculation.
+     * Get the payload for Square automatic tax calculation.
      *
      * @return array|null
      */
@@ -83,7 +83,7 @@ trait HandlesTaxes
     }
 
     /**
-     * Indicate that Tax IDs should be collected during a Stripe Checkout session.
+     * Indicate that Tax IDs should be collected during a Square Checkout session.
      *
      * @return $this
      */

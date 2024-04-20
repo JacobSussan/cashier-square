@@ -7,18 +7,16 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Stripe Keys
+    | Square Keys
     |--------------------------------------------------------------------------
     |
-    | The Stripe publishable key and secret key give you access to Stripe's
+    | The Square publishable key and secret key give you access to Square's
     | API. The "publishable" key is typically used when interacting with
-    | Stripe.js while the "secret" key accesses private API endpoints.
+    | Square.js while the "secret" key accesses private API endpoints.
     |
     */
-
-    'key' => env('STRIPE_KEY'),
-
-    'secret' => env('STRIPE_SECRET'),
+    'key' => env('SQUARE_APPLICATION_ID'),
+    'secret' => env('SQUARE_ACCESS_TOKEN'),
 
     /*
     |--------------------------------------------------------------------------
@@ -31,15 +29,15 @@ return [
     |
     */
 
-    'path' => env('CASHIER_PATH', 'stripe'),
+    'path' => env('CASHIER_PATH', 'square'),
 
     /*
     |--------------------------------------------------------------------------
-    | Stripe Webhooks
+    | Square Webhooks
     |--------------------------------------------------------------------------
     |
-    | Your Stripe webhook secret is used to prevent unauthorized requests to
-    | your Stripe webhook handling controllers. The tolerance setting will
+    | Your Square webhook secret is used to prevent unauthorized requests to
+    | your Square webhook handling controllers. The tolerance setting will
     | check the drift between the current time and the signed request's.
     |
     */
@@ -57,7 +55,7 @@ return [
     |
     | This is the default currency that will be used when generating charges
     | from your application. Of course, you are welcome to use any of the
-    | various world currencies that are currently supported via Stripe.
+    | various world currencies that are currently supported via Square.
     |
     */
 
@@ -83,7 +81,7 @@ return [
     |
     | If this setting is enabled, Cashier will automatically notify customers
     | whose payments require additional verification. You should listen to
-    | Stripe's webhooks in order for this feature to function correctly.
+    | Square's webhooks in order for this feature to function correctly.
     |
     */
 
@@ -111,10 +109,10 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Stripe Logger
+    | Square Logger
     |--------------------------------------------------------------------------
     |
-    | This setting defines which logging channel will be used by the Stripe
+    | This setting defines which logging channel will be used by the Square
     | library to write log messages. You are free to specify any of your
     | logging channels listed inside the "logging" configuration file.
     |

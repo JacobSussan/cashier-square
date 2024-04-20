@@ -670,7 +670,7 @@ The Stripe API version is now fixed by Cashier. By controlling the API version w
 
 PR: https://github.com/laravel/cashier-stripe/pull/653
 
-The `STRIPE_KEY` environment variable is now always used as the publishable key and the `STRIPE_SECRET` environment variable is always used as the secret key.
+The `STRIPE_KEY` environment variable is now always used as the publishable key and the `SQUARE_ACCESS_TOKEN` environment variable is always used as the secret key.
 
 ### Migrations
 

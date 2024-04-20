@@ -17,7 +17,7 @@ abstract class FeatureTestCase extends TestCase
 
     protected function setUp(): void
     {
-        if (! getenv('STRIPE_SECRET')) {
+        if (! getenv('SQUARE_ACCESS_TOKEN')) {
             $this->markTestSkipped('Stripe secret key not set.');
         }
 
@@ -30,7 +30,7 @@ abstract class FeatureTestCase extends TestCase
 
     protected static function stripe(array $options = []): StripeClient
     {
-        return Cashier::stripe(array_merge(['api_key' => getenv('STRIPE_SECRET')], $options));
+        return Cashier::stripe(array_merge(['api_key' => getenv('SQUARE_ACCESS_TOKEN')], $options));
     }
 
     protected function createCustomer($description = 'taylor', array $options = []): User

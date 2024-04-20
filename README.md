@@ -1,4 +1,4 @@
-<p align="center"><img src="/art/logo.svg" alt="Logo Laravel Cashier Stripe"></p>
+<p align="center"><img src="/art/logo.svg" alt="Logo Laravel Cashier Square"></p>
 
 <p align="center">
 <a href="https://github.com/laravel/cashier/actions"><img src="https://github.com/laravel/cashier/workflows/tests/badge.svg" alt="Build Status"></a>
@@ -8,12 +8,13 @@
 </p>
 
 ## Introduction
+This is an unofficial repo.
 
-Laravel Cashier provides an expressive, fluent interface to [Stripe's](https://stripe.com) subscription billing services. It handles almost all of the boilerplate subscription billing code you are dreading writing. In addition to basic subscription management, Cashier can handle coupons, swapping subscription, subscription "quantities", cancellation grace periods, and even generate invoice PDFs.
+Laravel Cashier provides an expressive, fluent interface to [Square's](https://squareup.com) subscription billing services. It handles almost all of the boilerplate subscription billing code you are dreading writing. In addition to basic subscription management, Cashier can handle coupons, swapping subscription, subscription "quantities", cancellation grace periods, and even generate invoice PDFs.
 
 ## Official Documentation
 
-Documentation for Cashier can be found on the [Laravel website](https://laravel.com/docs/billing).
+~~Documentation for Cashier can be found on the [Laravel website](https://laravel.com/docs/billing).~~
 
 ## Contributing
 

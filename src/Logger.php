@@ -3,9 +3,9 @@
 namespace Laravel\Cashier;
 
 use Psr\Log\LoggerInterface;
-use Stripe\Util\LoggerInterface as StripeLogger;
+use Square\Util\LoggerInterface as SquareLogger;
 
-class Logger implements StripeLogger
+class Logger implements SquareLogger
 {
     /**
      * The Logger instance.

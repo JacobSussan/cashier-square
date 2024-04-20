@@ -19,7 +19,7 @@ trait AllowsCoupons
     public $promotionCodeId;
 
     /**
-     * Determines if user redeemable promotion codes are available in Stripe Checkout.
+     * Determines if user redeemable promotion codes are available in Square Checkout.
      *
      * @var bool
      */
@@ -52,7 +52,7 @@ trait AllowsCoupons
     }
 
     /**
-     * Enables user redeemable promotion codes for a Stripe Checkout session.
+     * Enables user redeemable promotion codes for a Square Checkout session.
      *
      * @return $this
      */
@@ -64,7 +64,7 @@ trait AllowsCoupons
     }
 
     /**
-     * Return the discounts for a Stripe Checkout session.
+     * Return the discounts for a Square Checkout session.
      *
      * @return array[]|null
      */

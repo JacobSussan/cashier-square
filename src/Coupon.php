@@ -5,24 +5,24 @@ namespace Laravel\Cashier;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Contracts\Support\Jsonable;
 use JsonSerializable;
-use Stripe\Coupon as StripeCoupon;
+use Square\Models\Coupon as SquareCoupon;
 
 class Coupon implements Arrayable, Jsonable, JsonSerializable
 {
     /**
-     * The Stripe Coupon instance.
+     * The Square Coupon instance.
      *
-     * @var \Stripe\Coupon
+     * @var \Square\Models\Coupon
      */
     protected $coupon;
 
     /**
      * Create a new Coupon instance.
      *
-     * @param  \Stripe\Coupon  $coupon
+     * @param  \Square\Models\Coupon  $coupon
      * @return void
      */
-    public function __construct(StripeCoupon $coupon)
+    public function __construct(SquareCoupon $coupon)
     {
         $this->coupon = $coupon;
     }
@@ -34,7 +34,7 @@ class Coupon implements Arrayable, Jsonable, JsonSerializable
      */
     public function name()
     {
-        return $this->coupon->name ?: $this->coupon->id;
+        return $this->coupon->getName() ?: $this->coupon->getId();
     }
 
     /**
@@ -44,7 +44,7 @@ class Coupon implements Arrayable, Jsonable, JsonSerializable
      */
     public function isPercentage()
     {
-        return ! is_null($this->coupon->percent_off);
+        return ! is_null($this->coupon->getPercentage());
     }
 
     /**
@@ -54,7 +54,7 @@ class Coupon implements Arrayable, Jsonable, JsonSerializable
      */
     public function percentOff()
     {
-        return $this->coupon->percent_off;
+        return $this->coupon->getPercentage();
     }
 
     /**
@@ -64,7 +64,7 @@ class Coupon implements Arrayable, Jsonable, JsonSerializable
      */
     public function amountOff()
     {
-        if (! is_null($this->coupon->amount_off)) {
+        if (! is_null($this->coupon->getAmountOff())) {
             return $this->formatAmount($this->rawAmountOff());
         }
     }
@@ -76,7 +76,7 @@ class Coupon implements Arrayable, Jsonable, JsonSerializable
      */
     public function rawAmountOff()
     {
-        return $this->coupon->amount_off;
+        return $this->coupon->getAmountOff();
     }
 
     /**
@@ -87,15 +87,15 @@ class Coupon implements Arrayable, Jsonable, JsonSerializable
      */
     protected function formatAmount($amount)
     {
-        return Cashier::formatAmount($amount, $this->coupon->currency);
+        return Cashier::formatAmount($amount, $this->coupon->getCurrency());
     }
 
     /**
-     * Get the Stripe Coupon instance.
+     * Get the Square Coupon instance.
      *
-     * @return \Stripe\Coupon
+     * @return \Square\Models\Coupon
      */
-    public function asStripeCoupon()
+    public function asSquareCoupon()
     {
         return $this->coupon;
     }
@@ -107,7 +107,7 @@ class Coupon implements Arrayable, Jsonable, JsonSerializable
      */
     public function toArray()
     {
-        return $this->asStripeCoupon()->toArray();
+        return $this->asSquareCoupon()->toArray();
     }
 
     /**
@@ -133,13 +133,14 @@ class Coupon implements Arrayable, Jsonable, JsonSerializable
     }
 
     /**
-     * Dynamically get values from the Stripe object.
+     * Dynamically get values from the Square object.
      *
      * @param  string  $key
      * @return mixed
      */
     public function __get($key)
     {
-        return $this->coupon->{$key};
+        $getter = 'get' . ucfirst($key);
+        return $this->coupon->{$getter}();
     }
 }

@@ -7,8 +7,8 @@ use Illuminate\Support\ServiceProvider;
 use Laravel\Cashier\Console\WebhookCommand;
 use Laravel\Cashier\Contracts\InvoiceRenderer;
 use Laravel\Cashier\Invoices\DompdfInvoiceRenderer;
-use Stripe\Stripe;
-use Stripe\Util\LoggerInterface;
+use Square\SquareClient;
+use Square\Utils\LoggerInterface;
 
 class CashierServiceProvider extends ServiceProvider
 {
@@ -25,11 +25,11 @@ class CashierServiceProvider extends ServiceProvider
         $this->registerPublishing();
         $this->registerCommands();
 
-        Stripe::setAppInfo(
-            'Laravel Cashier',
-            Cashier::VERSION,
-            'https://laravel.com'
-        );
+        // Set Square information
+        SquareClient::setDefaultConfiguration([
+            'accessToken' => config('cashier.access_token'),
+            'environment' => config('cashier.environment'),
+        ]);
     }
 
     /**
@@ -57,7 +57,7 @@ class CashierServiceProvider extends ServiceProvider
     }
 
     /**
-     * Bind the Stripe logger interface to the Cashier logger.
+     * Bind the Square logger interface to the Cashier logger.
      *
      * @return void
      */
@@ -83,14 +83,14 @@ class CashierServiceProvider extends ServiceProvider
     }
 
     /**
-     * Register the Stripe logger.
+     * Register the Square logger.
      *
      * @return void
      */
     protected function registerLogger()
     {
         if (config('cashier.logger')) {
-            Stripe::setLogger($this->app->make(LoggerInterface::class));
+            SquareClient::setLogger($this->app->make(LoggerInterface::class));
         }
     }
 

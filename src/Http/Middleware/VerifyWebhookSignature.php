@@ -3,8 +3,8 @@
 namespace Laravel\Cashier\Http\Middleware;
 
 use Closure;
-use Stripe\Exception\SignatureVerificationException;
-use Stripe\WebhookSignature;
+use Square\Exceptions\ApiException;
+use Square\WebhookSignature;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 class VerifyWebhookSignature
@@ -23,12 +23,12 @@ class VerifyWebhookSignature
         try {
             WebhookSignature::verifyHeader(
                 $request->getContent(),
-                $request->header('Stripe-Signature'),
+                $request->header('Square-Signature'),
                 config('cashier.webhook.secret'),
                 config('cashier.webhook.tolerance')
             );
-        } catch (SignatureVerificationException $exception) {
-            throw new AccessDeniedHttpException($exception->getMessage(), $exception);
+        } catch (ApiException $exception) {
+            throw new AccessDeniedHttpException('Invalid webhook signature', $exception);
         }
 
         return $next($request);

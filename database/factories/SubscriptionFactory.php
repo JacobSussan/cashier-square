@@ -7,8 +7,8 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 use Laravel\Cashier\Cashier;
 use Laravel\Cashier\Subscription;
-use Stripe\Price as StripePrice;
-use Stripe\Subscription as StripeSubscription;
+use Square\Models\Subscription as SquareSubscription;
+use Square\Models\SubscriptionStatus;
 
 class SubscriptionFactory extends Factory
 {
@@ -31,9 +31,9 @@ class SubscriptionFactory extends Factory
         return [
             (new $model)->getForeignKey() => ($model)::factory(),
             'type' => 'default',
-            'stripe_id' => 'sub_'.Str::random(40),
-            'stripe_status' => StripeSubscription::STATUS_ACTIVE,
-            'stripe_price' => null,
+            'square_id' => 'sub_'.Str::random(40),
+            'square_status' => SubscriptionStatus::ACTIVE,
+            'square_plan_id' => null,
             'quantity' => null,
             'trial_ends_at' => null,
             'ends_at' => null,
@@ -41,14 +41,14 @@ class SubscriptionFactory extends Factory
     }
 
     /**
-     * Add a price identifier to the model.
+     * Add a plan identifier to the model.
      *
      * @return $this
      */
-    public function withPrice(StripePrice|string $price): static
+    public function withPlan(string $planId): static
     {
         return $this->state([
-            'stripe_price' => $price instanceof StripePrice ? $price->id : $price,
+            'square_plan_id' => $planId,
         ]);
     }
 
@@ -60,7 +60,7 @@ class SubscriptionFactory extends Factory
     public function active(): static
     {
         return $this->state([
-            'stripe_status' => StripeSubscription::STATUS_ACTIVE,
+            'square_status' => SubscriptionStatus::ACTIVE,
         ]);
     }
 
@@ -72,7 +72,7 @@ class SubscriptionFactory extends Factory
     public function trialing(DateTimeInterface $trialEndsAt = null): static
     {
         return $this->state([
-            'stripe_status' => StripeSubscription::STATUS_TRIALING,
+            'square_status' => SubscriptionStatus::TRIAL,
             'trial_ends_at' => $trialEndsAt,
         ]);
     }
@@ -85,7 +85,7 @@ class SubscriptionFactory extends Factory
     public function canceled(): static
     {
         return $this->state([
-            'stripe_status' => StripeSubscription::STATUS_CANCELED,
+            'square_status' => SubscriptionStatus::CANCELED,
             'ends_at' => now(),
         ]);
     }
@@ -98,7 +98,7 @@ class SubscriptionFactory extends Factory
     public function incomplete(): static
     {
         return $this->state([
-            'stripe_status' => StripeSubscription::STATUS_INCOMPLETE,
+            'square_status' => SubscriptionStatus::INCOMPLETE,
         ]);
     }
 
@@ -110,7 +110,7 @@ class SubscriptionFactory extends Factory
     public function incompleteAndExpired(): static
     {
         return $this->state([
-            'stripe_status' => StripeSubscription::STATUS_INCOMPLETE_EXPIRED,
+            'square_status' => SubscriptionStatus::INCOMPLETE_EXPIRED,
         ]);
     }
 
@@ -122,7 +122,7 @@ class SubscriptionFactory extends Factory
     public function pastDue(): static
     {
         return $this->state([
-            'stripe_status' => StripeSubscription::STATUS_PAST_DUE,
+            'square_status' => SubscriptionStatus::PAST_DUE,
         ]);
     }
 
@@ -134,7 +134,7 @@ class SubscriptionFactory extends Factory
     public function unpaid(): static
     {
         return $this->state([
-            'stripe_status' => StripeSubscription::STATUS_UNPAID,
+            'square_status' => SubscriptionStatus::UNPAID,
         ]);
     }
 }

@@ -14,7 +14,7 @@ use Laravel\Cashier\Concerns\HandlesPaymentFailures;
 use Laravel\Cashier\Concerns\HandlesTaxes;
 use Laravel\Cashier\Concerns\InteractsWithPaymentBehavior;
 use Laravel\Cashier\Concerns\Prorates;
-use Stripe\Subscription as StripeSubscription;
+use Square\Models\Subscription as SquareSubscription;
 
 class SubscriptionBuilder
 {
@@ -222,7 +222,7 @@ class SubscriptionBuilder
     }
 
     /**
-     * Add a new Stripe subscription to the Stripe model.
+     * Add a new Square subscription to the Square model.
      *
      * @param  array  $customerOptions
      * @param  array  $subscriptionOptions
@@ -236,9 +236,9 @@ class SubscriptionBuilder
     }
 
     /**
-     * Create a new Stripe subscription.
+     * Create a new Square subscription.
      *
-     * @param  \Stripe\PaymentMethod|string|null  $paymentMethod
+     * @param  \Square\PaymentMethod|string|null  $paymentMethod
      * @param  array  $customerOptions
      * @param  array  $subscriptionOptions
      * @return \Laravel\Cashier\Subscription
@@ -252,15 +252,15 @@ class SubscriptionBuilder
             throw new Exception('At least one price is required when starting subscriptions.');
         }
 
-        $stripeCustomer = $this->getStripeCustomer($paymentMethod, $customerOptions);
+        $squareCustomer = $this->getSquareCustomer($paymentMethod, $customerOptions);
 
-        $stripeSubscription = $this->owner->stripe()->subscriptions->create(array_merge(
-            ['customer' => $stripeCustomer->id],
+        $squareSubscription = $this->owner->square()->subscriptions->create(array_merge(
+            ['customer' => $squareCustomer->id],
             $this->buildPayload(),
             $subscriptionOptions
         ));
 
-        $subscription = $this->createSubscription($stripeSubscription);
+        $subscription = $this->createSubscription($squareSubscription);
 
         $this->handlePaymentFailure($subscription, $paymentMethod);
 
@@ -268,7 +268,7 @@ class SubscriptionBuilder
     }
 
     /**
-     * Create a new Stripe subscription and send an invoice to the customer.
+     * Create a new Square subscription and send an invoice to the customer.
      *
      * @param  array  $customerOptions
      * @param  array  $subscriptionOptions
@@ -289,36 +289,36 @@ class SubscriptionBuilder
     /**
      * Create the Eloquent Subscription.
      *
-     * @param  \Stripe\Subscription  $stripeSubscription
+     * @param  \Square\Subscription  $SquareSubscription
      * @return \Laravel\Cashier\Subscription
      */
-    protected function createSubscription(StripeSubscription $stripeSubscription)
+    protected function createSubscription(SquareSubscription $squareSubscription)
     {
-        if ($subscription = $this->owner->subscriptions()->where('stripe_id', $stripeSubscription->id)->first()) {
+        if ($subscription = $this->owner->subscriptions()->where('square_id', $squareSubscription->id)->first()) {
             return $subscription;
         }
 
-        /** @var \Stripe\SubscriptionItem $firstItem */
-        $firstItem = $stripeSubscription->items->first();
-        $isSinglePrice = $stripeSubscription->items->count() === 1;
+        /** @var \Square\SubscriptionItem $firstItem */
+        $firstItem = $squareSubscription->items->first();
+        $isSinglePrice = $squareSubscription->items->count() === 1;
 
         /** @var \Laravel\Cashier\Subscription $subscription */
         $subscription = $this->owner->subscriptions()->create([
             'type' => $this->type,
-            'stripe_id' => $stripeSubscription->id,
-            'stripe_status' => $stripeSubscription->status,
-            'stripe_price' => $isSinglePrice ? $firstItem->price->id : null,
+            'square_id' => $squareSubscription->id,
+            'square_status' => $squareSubscription->status,
+            'square_price' => $isSinglePrice ? $firstItem->price->id : null,
             'quantity' => $isSinglePrice ? ($firstItem->quantity ?? null) : null,
             'trial_ends_at' => ! $this->skipTrial ? $this->trialExpires : null,
             'ends_at' => null,
         ]);
 
-        /** @var \Stripe\SubscriptionItem $item */
-        foreach ($stripeSubscription->items as $item) {
+        /** @var \Square\SubscriptionItem $item */
+        foreach ($squareSubscription->items as $item) {
             $subscription->items()->create([
-                'stripe_id' => $item->id,
-                'stripe_product' => $item->price->product,
-                'stripe_price' => $item->price->id,
+                'square_id' => $item->id,
+                'square_product' => $item->price->product,
+                'square_price' => $item->price->id,
                 'quantity' => $item->quantity ?? null,
             ]);
         }
@@ -341,9 +341,9 @@ class SubscriptionBuilder
 
         if (! $this->skipTrial && $this->trialExpires) {
             // Checkout Sessions are active for 24 hours after their creation and within that time frame the customer
-            // can complete the payment at any time. Stripe requires the trial end at least 48 hours in the future
+            // can complete the payment at any time. Square requires the trial end at least 48 hours in the future
             // so that there is still at least a one day trial if your customer pays at the end of the 24 hours.
-            // We also add 10 seconds of extra time to account for any delay with an API request onto Stripe.
+            // We also add 10 seconds of extra time to account for any delay with an API request onto Square.
             $minimumTrialPeriod = Carbon::now()->addHours(48)->addSeconds(10);
 
             $trialEnd = $this->trialExpires->gt($minimumTrialPeriod) ? $this->trialExpires : $minimumTrialPeriod;
@@ -373,15 +373,15 @@ class SubscriptionBuilder
     }
 
     /**
-     * Get the Stripe customer instance for the current user and payment method.
+     * Get the Square customer instance for the current user and payment method.
      *
-     * @param  \Stripe\PaymentMethod|string|null  $paymentMethod
+     * @param  \Square\PaymentMethod|string|null  $paymentMethod
      * @param  array  $options
-     * @return \Stripe\Customer
+     * @return \Square\Customer
      */
-    protected function getStripeCustomer($paymentMethod = null, array $options = [])
+    protected function getSquareCustomer($paymentMethod = null, array $options = [])
     {
-        $customer = $this->owner->createOrGetStripeCustomer($options);
+        $customer = $this->owner->createOrGetSquareCustomer($options);
 
         if ($paymentMethod) {
             $this->owner->updateDefaultPaymentMethod($paymentMethod);
@@ -419,7 +419,7 @@ class SubscriptionBuilder
     }
 
     /**
-     * Get the trial ending date for the Stripe payload.
+     * Get the trial ending date for the Square payload.
      *
      * @return int|string|null
      */
@@ -435,7 +435,7 @@ class SubscriptionBuilder
     }
 
     /**
-     * Get the tax rates for the Stripe payload.
+     * Get the tax rates for the Square payload.
      *
      * @return array|null
      */
@@ -447,7 +447,7 @@ class SubscriptionBuilder
     }
 
     /**
-     * Get the price tax rates for the Stripe payload.
+     * Get the price tax rates for the Square payload.
      *
      * @param  string  $price
      * @return array|null

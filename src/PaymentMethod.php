@@ -7,21 +7,21 @@ use Illuminate\Contracts\Support\Jsonable;
 use JsonSerializable;
 use Laravel\Cashier\Exceptions\InvalidPaymentMethod;
 use LogicException;
-use Stripe\PaymentMethod as StripePaymentMethod;
+use Square\Models\Payment as SquarePayment;
 
 class PaymentMethod implements Arrayable, Jsonable, JsonSerializable
 {
     /**
-     * The Stripe model instance.
+     * The Square model instance.
      *
      * @var \Illuminate\Database\Eloquent\Model
      */
     protected $owner;
 
     /**
-     * The Stripe PaymentMethod instance.
+     * The Square Payment instance.
      *
-     * @var \Stripe\PaymentMethod
+     * @var \Square\Models\Payment
      */
     protected $paymentMethod;
 
@@ -29,18 +29,18 @@ class PaymentMethod implements Arrayable, Jsonable, JsonSerializable
      * Create a new PaymentMethod instance.
      *
      * @param  \Illuminate\Database\Eloquent\Model  $owner
-     * @param  \Stripe\PaymentMethod  $paymentMethod
+     * @param  \Square\Models\Payment  $paymentMethod
      * @return void
      *
      * @throws \Laravel\Cashier\Exceptions\InvalidPaymentMethod
      */
-    public function __construct($owner, StripePaymentMethod $paymentMethod)
+    public function __construct($owner, SquarePayment $paymentMethod)
     {
-        if (is_null($paymentMethod->customer)) {
+        if (is_null($paymentMethod->getCustomerId())) {
             throw new LogicException('The payment method is not attached to a customer.');
         }
 
-        if ($owner->stripe_id !== $paymentMethod->customer) {
+        if ($owner->square_id !== $paymentMethod->getCustomerId()) {
             throw InvalidPaymentMethod::invalidOwner($paymentMethod, $owner);
         }
 
@@ -59,7 +59,7 @@ class PaymentMethod implements Arrayable, Jsonable, JsonSerializable
     }
 
     /**
-     * Get the Stripe model instance.
+     * Get the Square model instance.
      *
      * @return \Illuminate\Database\Eloquent\Model
      */
@@ -69,11 +69,11 @@ class PaymentMethod implements Arrayable, Jsonable, JsonSerializable
     }
 
     /**
-     * Get the Stripe PaymentMethod instance.
+     * Get the Square Payment instance.
      *
-     * @return \Stripe\PaymentMethod
+     * @return \Square\Models\Payment
      */
-    public function asStripePaymentMethod()
+    public function asSquarePayment()
     {
         return $this->paymentMethod;
     }
@@ -85,7 +85,7 @@ class PaymentMethod implements Arrayable, Jsonable, JsonSerializable
      */
     public function toArray()
     {
-        return $this->asStripePaymentMethod()->toArray();
+        return $this->asSquarePayment()->jsonSerialize();
     }
 
     /**
@@ -111,13 +111,18 @@ class PaymentMethod implements Arrayable, Jsonable, JsonSerializable
     }
 
     /**
-     * Dynamically get values from the Stripe object.
+     * Dynamically get values from the Square object.
      *
      * @param  string  $key
      * @return mixed
      */
     public function __get($key)
     {
-        return $this->paymentMethod->{$key};
+        $method = 'get' . ucfirst($key);
+        if (method_exists($this->paymentMethod, $method)) {
+            return $this->paymentMethod->$method();
+        }
+
+        return null;
     }
 }

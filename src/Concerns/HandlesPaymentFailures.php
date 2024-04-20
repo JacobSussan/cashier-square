@@ -1,12 +1,12 @@
 <?php
 
-namespace Laravel\Cashier\Concerns;
+namespace App\Concerns;
 
-use Laravel\Cashier\Exceptions\IncompletePayment;
-use Laravel\Cashier\Payment;
-use Laravel\Cashier\Subscription;
-use Stripe\Exception\CardException as StripeCardException;
-use Stripe\PaymentMethod as StripePaymentMethod;
+use App\Exceptions\IncompletePayment;
+use App\Payment;
+use App\Subscription;
+use Square\Exceptions\ApiException;
+use Square\Models\Payment as SquarePayment;
 
 trait HandlesPaymentFailures
 {
@@ -18,7 +18,7 @@ trait HandlesPaymentFailures
     protected $confirmIncompletePayment = true;
 
     /**
-     * The options to be used when confirming a payment intent.
+     * The options to be used when confirming a payment.
      *
      * @var array
      */
@@ -27,15 +27,15 @@ trait HandlesPaymentFailures
     /**
      * Handle a failed payment for the given subscription.
      *
-     * @param  \Laravel\Cashier\Subscription  $subscription
-     * @param  \Stripe\PaymentMethod|string|null  $paymentMethod
+     * @param  \App\Subscription  $subscription
+     * @param  string|null  $paymentMethodId
      * @return void
      *
-     * @throws \Laravel\Cashier\Exceptions\IncompletePayment
+     * @throws \App\Exceptions\IncompletePayment
      *
      * @internal
      */
-    public function handlePaymentFailure(Subscription $subscription, $paymentMethod = null)
+    public function handlePaymentFailure(Subscription $subscription, $paymentMethodId = null)
     {
         if ($this->confirmIncompletePayment && $subscription->hasIncompletePayment()) {
             try {
@@ -43,32 +43,22 @@ trait HandlesPaymentFailures
             } catch (IncompletePayment $e) {
                 if ($e->payment->requiresConfirmation()) {
                     try {
-                        if ($paymentMethod) {
-                            $paymentIntent = $e->payment->confirm(array_merge(
-                                $this->paymentConfirmationOptions,
-                                [
-                                    'expand' => ['invoice.subscription'],
-                                    'payment_method' => $paymentMethod instanceof StripePaymentMethod
-                                        ? $paymentMethod->id
-                                        : $paymentMethod,
-                                ]
-                            ));
-                        } else {
-                            $paymentIntent = $e->payment->confirm(array_merge(
-                                $this->paymentConfirmationOptions,
-                                ['expand' => ['invoice.subscription']]
-                            ));
-                        }
-                    } catch (StripeCardException) {
-                        $paymentIntent = $e->payment->asStripePaymentIntent(['invoice.subscription']);
+                        $payment = new SquarePayment($this->paymentConfirmationOptions);
+                        $payment->setSourceId($paymentMethodId);
+                        $payment->setAutocomplete(true);
+                        $payment->setCustomerId($subscription->customer_id);
+                        $payment->setReferenceId($subscription->id);
+                        $payment->setAmountMoney($e->payment->getAmountMoney());
+
+                        $result = $this->getSquareClient()->getPaymentsApi()->createPayment($payment);
+
+                        $subscription->updateStatus($result->getPayment()->getStatus());
+                    } catch (ApiException $exception) {
+                        // Handle Square API exception
                     }
 
-                    $subscription->fill([
-                        'stripe_status' => $paymentIntent->invoice->subscription->status,
-                    ])->save();
-
                     if ($subscription->hasIncompletePayment()) {
-                        (new Payment($paymentIntent))->validate();
+                        (new Payment($result->getPayment()))->validate();
                     }
                 } else {
                     throw $e;
@@ -93,7 +83,7 @@ trait HandlesPaymentFailures
     }
 
     /**
-     * Specify the options to be used when confirming a payment intent.
+     * Specify the options to be used when confirming a payment.
      *
      * @param  array  $options
      * @return $this
@@ -103,5 +93,15 @@ trait HandlesPaymentFailures
         $this->paymentConfirmationOptions = $options;
 
         return $this;
+    }
+
+    /**
+     * Get the Square client instance.
+     *
+     * @return \Square\SquareClient
+     */
+    protected function getSquareClient()
+    {
+        // Return the Square client instance
     }
 }

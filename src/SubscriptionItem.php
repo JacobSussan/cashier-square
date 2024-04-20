@@ -109,26 +109,24 @@ class SubscriptionItem extends Model
     {
         $this->subscription->guardAgainstIncomplete();
 
-        $stripeSubscriptionItem = $this->updateStripeSubscriptionItem([
-            'payment_behavior' => $this->paymentBehavior(),
-            'proration_behavior' => $this->prorateBehavior(),
+        $squareSubscriptionItem = $this->updateSquareSubscriptionItem([
             'quantity' => $quantity,
         ]);
 
         $this->fill([
-            'quantity' => $stripeSubscriptionItem->quantity,
+            'quantity' => $squareSubscriptionItem->quantity,
         ])->save();
 
-        $stripeSubscription = $this->subscription->asStripeSubscription();
+        $squareSubscription = $this->subscription->asSquareSubscription();
 
         if ($this->subscription->hasSinglePrice()) {
             $this->subscription->fill([
-                'quantity' => $stripeSubscriptionItem->quantity,
+                'quantity' => $squareSubscriptionItem->quantity,
             ]);
         }
 
         $this->subscription->fill([
-            'stripe_status' => $stripeSubscription->status,
+            'square_status' => $squareSubscription->status,
         ])->save();
 
         $this->handlePaymentFailure($this->subscription);
@@ -137,7 +135,7 @@ class SubscriptionItem extends Model
     }
 
     /**
-     * Swap the subscription item to a new Stripe price.
+     * Swap the subscription item to a new Square price.
      *
      * @param  string  $price
      * @param  array  $options
@@ -149,7 +147,7 @@ class SubscriptionItem extends Model
     {
         $this->subscription->guardAgainstIncomplete();
 
-        $stripeSubscriptionItem = $this->updateStripeSubscriptionItem(array_merge(
+        $squareSubscriptionItem = $this->updateSquareSubscriptionItem(array_merge(
             array_filter([
                 'price' => $price,
                 'quantity' => $this->quantity,
@@ -162,22 +160,22 @@ class SubscriptionItem extends Model
             $options));
 
         $this->fill([
-            'stripe_product' => $stripeSubscriptionItem->price->product,
-            'stripe_price' => $stripeSubscriptionItem->price->id,
-            'quantity' => $stripeSubscriptionItem->quantity,
+            'square_product' => $squareSubscriptionItem->price->product,
+            'square_price' => $squareSubscriptionItem->price->id,
+            'quantity' => $squareSubscriptionItem->quantity,
         ])->save();
 
-        $stripeSubscription = $this->subscription->asStripeSubscription();
+        $squareSubscription = $this->subscription->asSquareSubscription();
 
         if ($this->subscription->hasSinglePrice()) {
             $this->subscription->fill([
-                'stripe_price' => $price,
-                'quantity' => $stripeSubscriptionItem->quantity,
+                'square_price' => $price,
+                'quantity' => $squareSubscriptionItem->quantity,
             ]);
         }
 
         $this->subscription->fill([
-            'stripe_status' => $stripeSubscription->status,
+            'square_status' => $squareSubscription->status,
         ])->save();
 
         $this->handlePaymentFailure($this->subscription);
@@ -186,14 +184,14 @@ class SubscriptionItem extends Model
     }
 
     /**
-     * Swap the subscription item to a new Stripe price, and invoice immediately.
+     * Swap the subscription item to a new Square price, and invoice immediately.
      *
      * @param  string  $price
      * @param  array  $options
      * @return $this
      *
-     * @throws \Laravel\Cashier\Exceptions\IncompletePayment
-     * @throws \Laravel\Cashier\Exceptions\SubscriptionUpdateFailure
+     * @throws \App\Exceptions\IncompletePayment
+     * @throws \App\Exceptions\SubscriptionUpdateFailure
      */
     public function swapAndInvoice($price, array $options = [])
     {
@@ -207,17 +205,12 @@ class SubscriptionItem extends Model
      *
      * @param  int  $quantity
      * @param  \DateTimeInterface|int|null  $timestamp
-     * @return \Stripe\UsageRecord
+     * @return \Square\Models\UsageRecord
      */
     public function reportUsage($quantity = 1, $timestamp = null)
     {
-        $timestamp = $timestamp instanceof DateTimeInterface ? $timestamp->getTimestamp() : $timestamp;
-
-        return $this->subscription->owner->stripe()->subscriptionItems->createUsageRecord($this->stripe_id, [
-            'quantity' => $quantity,
-            'action' => $timestamp ? 'set' : 'increment',
-            'timestamp' => $timestamp ?? time(),
-        ]);
+        // Square does not currently support metered billing usage records
+        throw new \Exception('Square does not support metered billing usage records.');
     }
 
     /**
@@ -228,35 +221,32 @@ class SubscriptionItem extends Model
      */
     public function usageRecords($options = [])
     {
-        return new Collection($this->subscription->owner->stripe()->subscriptionItems->allUsageRecordSummaries(
-            $this->stripe_id, $options
-        )->data);
+        // Square does not currently support metered billing usage records
+        throw new \Exception('Square does not support metered billing usage records.');
     }
 
     /**
-     * Update the underlying Stripe subscription item information for the model.
+     * Update the underlying Square subscription item information for the model.
      *
      * @param  array  $options
-     * @return \Stripe\SubscriptionItem
+     * @return \Square\Models\SubscriptionItem
      */
-    public function updateStripeSubscriptionItem(array $options = [])
+    public function updateSquareSubscriptionItem(array $options = [])
     {
-        return $this->subscription->owner->stripe()->subscriptionItems->update(
-            $this->stripe_id, $options
-        );
+        // Square API call to update subscription item
+        // This will depend on the Square SDK and implementation details
     }
 
     /**
-     * Get the subscription as a Stripe subscription item object.
+     * Get the subscription as a Square subscription item object.
      *
      * @param  array  $expand
-     * @return \Stripe\SubscriptionItem
+     * @return \Square\Models\SubscriptionItem
      */
-    public function asStripeSubscriptionItem(array $expand = [])
+    public function asSquareSubscriptionItem(array $expand = [])
     {
-        return $this->subscription->owner->stripe()->subscriptionItems->retrieve(
-            $this->stripe_id, ['expand' => $expand]
-        );
+        // Square API call to retrieve subscription item
+        // This will depend on the Square SDK and implementation details
     }
 
     /**

@@ -7,21 +7,21 @@ use Illuminate\Contracts\Support\Jsonable;
 use Illuminate\Contracts\Support\Responsable;
 use Illuminate\Support\Facades\Redirect;
 use JsonSerializable;
-use Stripe\Checkout\Session;
+use Square\Checkout\Session;
 
 class Checkout implements Arrayable, Jsonable, JsonSerializable, Responsable
 {
     /**
-     * The Stripe model instance.
+     * The Square model instance.
      *
      * @var \Illuminate\Database\Eloquent\Model|null
      */
     protected $owner;
 
     /**
-     * The Stripe checkout session instance.
+     * The Square checkout session instance.
      *
-     * @var \Stripe\Checkout\Session
+     * @var \Square\Checkout\Session
      */
     protected $session;
 
@@ -29,7 +29,7 @@ class Checkout implements Arrayable, Jsonable, JsonSerializable, Responsable
      * Create a new checkout session instance.
      *
      * @param  \Illuminate\Database\Eloquent\Model|null  $owner
-     * @param  \Stripe\Checkout\Session  $session
+     * @param  \Square\Checkout\Session  $session
      * @return void
      */
     public function __construct($owner, Session $session)
@@ -75,11 +75,11 @@ class Checkout implements Arrayable, Jsonable, JsonSerializable, Responsable
         ], $sessionOptions);
 
         if ($owner) {
-            $data['customer'] = $owner->createOrGetStripeCustomer($customerOptions)->id;
+            $data['customer'] = $owner->createOrGetSquareCustomer($customerOptions)->id;
 
-            $stripe = $owner->stripe();
+            $square = $owner->square();
         } else {
-            $stripe = Cashier::stripe();
+            $square = Cashier::square();
         }
 
         // Make sure to collect address and name when Tax ID collection is enabled...
@@ -107,7 +107,7 @@ class Checkout implements Arrayable, Jsonable, JsonSerializable, Responsable
             $data['cancel_url'] = $sessionOptions['cancel_url'] ?? route('home').'?checkout=cancelled';
         }
 
-        $session = $stripe->checkout->sessions->create($data);
+        $session = $square->checkout->sessions->create($data);
 
         return new static($owner, $session);
     }
@@ -134,11 +134,11 @@ class Checkout implements Arrayable, Jsonable, JsonSerializable, Responsable
     }
 
     /**
-     * Get the Checkout Session as a Stripe Checkout Session object.
+     * Get the Checkout Session as a Square Checkout Session object.
      *
-     * @return \Stripe\Checkout\Session
+     * @return \Square\Checkout\Session
      */
-    public function asStripeCheckoutSession()
+    public function asSquareCheckoutSession()
     {
         return $this->session;
     }
@@ -150,7 +150,7 @@ class Checkout implements Arrayable, Jsonable, JsonSerializable, Responsable
      */
     public function toArray()
     {
-        return $this->asStripeCheckoutSession()->toArray();
+        return $this->asSquareCheckoutSession()->toArray();
     }
 
     /**
@@ -176,7 +176,7 @@ class Checkout implements Arrayable, Jsonable, JsonSerializable, Responsable
     }
 
     /**
-     * Dynamically get values from the Stripe object.
+     * Dynamically get values from the Square object.
      *
      * @param  string  $key
      * @return mixed

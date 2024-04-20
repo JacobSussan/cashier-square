@@ -8,9 +8,9 @@ use Money\Currency;
 use Money\Formatter\IntlMoneyFormatter;
 use Money\Money;
 use NumberFormatter;
-use Stripe\BaseStripeClient;
-use Stripe\Customer as StripeCustomer;
-use Stripe\StripeClient;
+use Square\Client;
+use Square\Models\Customer as SquareCustomer;
+use Square\SquareClient;
 
 class Cashier
 {
@@ -22,18 +22,18 @@ class Cashier
     const VERSION = '15.3.2';
 
     /**
-     * The Stripe API version.
+     * The Square API version.
      *
      * @var string
      */
-    const STRIPE_VERSION = '2023-10-16';
+    const SQUARE_VERSION = '2023-10-16';
 
     /**
-     * The base URL for the Stripe API.
+     * The base URL for the Square API.
      *
      * @var string
      */
-    public static $apiBaseUrl = BaseStripeClient::DEFAULT_API_BASE;
+    public static $apiBaseUrl = Client::DEFAULT_API_BASE;
 
     /**
      * The custom currency formatter.
@@ -64,7 +64,7 @@ class Cashier
     public static $deactivateIncomplete = true;
 
     /**
-     * Indicates if Cashier will automatically calculate taxes using Stripe Tax.
+     * Indicates if Cashier will automatically calculate taxes using Square Tax.
      *
      * @var bool
      */
@@ -92,14 +92,14 @@ class Cashier
     public static $subscriptionItemModel = SubscriptionItem::class;
 
     /**
-     * Get the customer instance by its Stripe ID.
+     * Get the customer instance by its Square ID.
      *
-     * @param  \Stripe\Customer|string|null  $stripeId
+     * @param  \Square\Models\Customer|string|null  $squareId
      * @return \Laravel\Cashier\Billable|null
      */
-    public static function findBillable($stripeId)
+    public static function findBillable($squareId)
     {
-        $stripeId = $stripeId instanceof StripeCustomer ? $stripeId->id : $stripeId;
+        $squareId = $squareId instanceof SquareCustomer ? $squareId->getId() : $squareId;
 
         $model = static::$customerModel;
 
@@ -107,24 +107,27 @@ class Cashier
             ? $model::withTrashed()
             : new $model;
 
-        return $stripeId ? $builder->where('stripe_id', $stripeId)->first() : null;
+        return $squareId ? $builder->where('square_id', $squareId)->first() : null;
     }
 
     /**
-     * Get the Stripe SDK client.
+     * Get the Square SDK client.
      *
      * @param  array  $options
-     * @return \Stripe\StripeClient
+     * @return \Square\SquareClient
      */
-    public static function stripe(array $options = [])
+    public static function square(array $options = [])
     {
         $config = array_merge([
-            'api_key' => $options['api_key'] ?? config('cashier.secret'),
-            'stripe_version' => static::STRIPE_VERSION,
-            'api_base' => static::$apiBaseUrl,
+            'accessToken' => $options['accessToken'] ?? config('cashier.secret'),
+            'squareVersion' => static::SQUARE_VERSION,
+            'apiBase' => static::$apiBaseUrl,
         ], $options);
 
-        return app(StripeClient::class, ['config' => $config]);
+        return new SquareClient([
+            'accessToken' => $config['accessToken'],
+            'environment' => isset($config['environment']) ? $config['environment'] : 'production',
+        ]);
     }
 
     /**
@@ -205,7 +208,7 @@ class Cashier
     }
 
     /**
-     * Configure Cashier to automatically calculate taxes using Stripe Tax.
+     * Configure Cashier to automatically calculate taxes using Square Tax.
      *
      * @return static
      */
