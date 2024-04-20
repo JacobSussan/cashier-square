@@ -12,7 +12,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 class WebhookControllerTest extends TestCase
 {
-    public function test_proper_methods_are_called_based_on_stripe_event()
+    public function test_proper_methods_are_called_based_on_square_event()
     {
         $request = $this->request('charge.succeeded');
 
