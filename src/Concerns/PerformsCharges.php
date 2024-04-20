@@ -1,11 +1,9 @@
 <?php
 
-namespace Laravel\Cashier\Concerns;
+namespace App\Square\Concerns;
 
-use Laravel\Cashier\Checkout;
-use Laravel\Cashier\Payment;
-use LogicException;
-use Stripe\Exception\InvalidRequestException as StripeInvalidRequestException;
+use App\Square\Payment;
+use Square\Exceptions\ApiException;
 
 trait PerformsCharges
 {
@@ -17,18 +15,17 @@ trait PerformsCharges
      * @param  int  $amount
      * @param  string  $paymentMethod
      * @param  array  $options
-     * @return \Laravel\Cashier\Payment
+     * @return \App\Square\Payment
      *
-     * @throws \Laravel\Cashier\Exceptions\IncompletePayment
+     * @throws \App\Square\Exceptions\IncompletePayment
      */
     public function charge($amount, $paymentMethod, array $options = [])
     {
         $options = array_merge([
-            'confirmation_method' => 'automatic',
-            'confirm' => true,
+            'autocomplete' => true,
         ], $options);
 
-        $options['payment_method'] = $paymentMethod;
+        $options['source_id'] = $paymentMethod;
 
         $payment = $this->createPayment($amount, $options);
 
@@ -38,44 +35,11 @@ trait PerformsCharges
     }
 
     /**
-     * Create a new PaymentIntent instance.
+     * Create a new Payment instance with a Square Payment.
      *
      * @param  int  $amount
      * @param  array  $options
-     * @return \Laravel\Cashier\Payment
-     */
-    public function pay($amount, array $options = [])
-    {
-        $options['automatic_payment_methods'] = ['enabled' => true];
-
-        unset($options['payment_method_types']);
-
-        return $this->createPayment($amount, $options);
-    }
-
-    /**
-     * Create a new PaymentIntent instance for the given payment method types.
-     *
-     * @param  int  $amount
-     * @param  array  $paymentMethods
-     * @param  array  $options
-     * @return \Laravel\Cashier\Payment
-     */
-    public function payWith($amount, array $paymentMethods, array $options = [])
-    {
-        $options['payment_method_types'] = $paymentMethods;
-
-        unset($options['automatic_payment_methods']);
-
-        return $this->createPayment($amount, $options);
-    }
-
-    /**
-     * Create a new Payment instance with a Stripe PaymentIntent.
-     *
-     * @param  int  $amount
-     * @param  array  $options
-     * @return \Laravel\Cashier\Payment
+     * @return \App\Square\Payment
      */
     public function createPayment($amount, array $options = [])
     {
@@ -83,89 +47,47 @@ trait PerformsCharges
             'currency' => $this->preferredCurrency(),
         ], $options);
 
-        $options['amount'] = $amount;
+        $options['amount_money'] = [
+            'amount' => $amount,
+            'currency' => $options['currency'],
+        ];
 
-        if ($this->hasStripeId()) {
-            $options['customer'] = $this->stripe_id;
+        if ($this->hasSquareCustomerId()) {
+            $options['customer_id'] = $this->square_customer_id;
         }
-
-        return new Payment(
-            static::stripe()->paymentIntents->create($options)
-        );
-    }
-
-    /**
-     * Find a payment intent by ID.
-     *
-     * @param  string  $id
-     * @return \Laravel\Cashier\Payment|null
-     */
-    public function findPayment($id)
-    {
-        $stripePaymentIntent = null;
 
         try {
-            $stripePaymentIntent = static::stripe()->paymentIntents->retrieve($id);
-        } catch (StripeInvalidRequestException $exception) {
-            //
+            $squarePayment = static::square()->payments->createPayment($options);
+        } catch (ApiException $e) {
+            throw new IncompletePayment($e->getMessage());
         }
 
-        return $stripePaymentIntent ? new Payment($stripePaymentIntent) : null;
+        return new Payment($squarePayment);
     }
 
     /**
      * Refund a customer for a charge.
      *
-     * @param  string  $paymentIntent
+     * @param  string  $paymentId
      * @param  array  $options
-     * @return \Stripe\Refund
+     * @return \Square\Models\Refund
      */
-    public function refund($paymentIntent, array $options = [])
+    public function refund($paymentId, array $options = [])
     {
-        return static::stripe()->refunds->create(
-            ['payment_intent' => $paymentIntent] + $options
-        );
-    }
+        $options = array_merge([
+            'payment_id' => $paymentId,
+            'amount_money' => [
+                'amount' => $options['amount'],
+                'currency' => $this->preferredCurrency(),
+            ],
+        ], $options);
 
-    /**
-     * Begin a new checkout session for existing prices.
-     *
-     * @param  array|string  $items
-     * @param  array  $sessionOptions
-     * @param  array  $customerOptions
-     * @return \Laravel\Cashier\Checkout
-     */
-    public function checkout($items, array $sessionOptions = [], array $customerOptions = [])
-    {
-        return Checkout::customer($this, $this)->create($items, $sessionOptions, $customerOptions);
-    }
-
-    /**
-     * Begin a new checkout session for a "one-off" charge.
-     *
-     * @param  int  $amount
-     * @param  string  $name
-     * @param  int  $quantity
-     * @param  array  $sessionOptions
-     * @param  array  $customerOptions
-     * @param  array  $productData
-     * @return \Laravel\Cashier\Checkout
-     */
-    public function checkoutCharge($amount, $name, $quantity = 1, array $sessionOptions = [], array $customerOptions = [], array $productData = [])
-    {
-        if ($this->isAutomaticTaxEnabled()) {
-            throw new LogicException('For now, you cannot use checkout charges in combination with automatic tax calculation.');
+        try {
+            $refund = static::square()->refunds->refundPayment($options);
+        } catch (ApiException $e) {
+            throw new IncompletePayment($e->getMessage());
         }
 
-        return $this->checkout([[
-            'price_data' => [
-                'currency' => $this->preferredCurrency(),
-                'product_data' => array_merge($productData, [
-                    'name' => $name,
-                ]),
-                'unit_amount' => $amount,
-            ],
-            'quantity' => $quantity,
-        ]], $sessionOptions, $customerOptions);
+        return $refund;
     }
 }

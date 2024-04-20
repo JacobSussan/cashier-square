@@ -7,9 +7,8 @@ use Laravel\Cashier\Cashier;
 use Laravel\Cashier\Tests\Fixtures\User;
 use Laravel\Cashier\Tests\TestCase;
 use Orchestra\Testbench\Concerns\WithLaravelMigrations;
-use Stripe\ApiRequestor as StripeApiRequestor;
-use Stripe\HttpClient\CurlClient as StripeCurlClient;
-use Stripe\StripeClient;
+use Square\HttpClient\CurlClient as SquareCurlClient;
+use Square\SquareClient;
 
 abstract class FeatureTestCase extends TestCase
 {
@@ -18,19 +17,18 @@ abstract class FeatureTestCase extends TestCase
     protected function setUp(): void
     {
         if (! getenv('SQUARE_ACCESS_TOKEN')) {
-            $this->markTestSkipped('Stripe secret key not set.');
+            $this->markTestSkipped('Square access token not set.');
         }
 
         parent::setUp();
 
-        $curl = new StripeCurlClient([CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1]);
+        $curl = new SquareCurlClient([CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1]);
         $curl->setEnableHttp2(false);
-        StripeApiRequestor::setHttpClient($curl);
     }
 
-    protected static function stripe(array $options = []): StripeClient
+    protected static function square(array $options = []): SquareClient
     {
-        return Cashier::stripe(array_merge(['api_key' => getenv('SQUARE_ACCESS_TOKEN')], $options));
+        return Cashier::square(array_merge(['accessToken' => getenv('SQUARE_ACCESS_TOKEN')], $options));
     }
 
     protected function createCustomer($description = 'taylor', array $options = []): User

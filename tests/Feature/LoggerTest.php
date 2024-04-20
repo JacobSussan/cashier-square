@@ -1,14 +1,14 @@
 <?php
 
-namespace Laravel\Cashier\Tests\Feature;
+namespace Square\Cashier\Tests\Feature;
 
-use Laravel\Cashier\Logger;
-use Laravel\Cashier\Tests\TestCase;
+use Square\Cashier\Logger;
+use Square\Cashier\Tests\TestCase;
 use Mockery as m;
 use Psr\Log\LoggerInterface as PsrLoggerInterface;
-use Stripe\Stripe;
-use Stripe\Util\DefaultLogger;
-use Stripe\Util\LoggerInterface;
+use Square\Connect\ApiClient;
+use Square\Connect\Util\DefaultLogger;
+use Square\Connect\Util\LoggerInterface;
 
 class LoggerTest extends TestCase
 {
@@ -29,13 +29,13 @@ class LoggerTest extends TestCase
         $this->assertInstanceOf(
             Logger::class,
             $logger,
-            'Failed asserting that the Stripe logger interface is bound to the Cashier logger.'
+            'Failed asserting that the Square logger interface is bound to the Cashier logger.'
         );
 
         $this->assertInstanceOf(
             LoggerInterface::class,
             $logger,
-            'Failed asserting that the Cashier logger implements the Stripe logger interface.'
+            'Failed asserting that the Cashier logger implements the Square logger interface.'
         );
     }
 
@@ -55,14 +55,14 @@ class LoggerTest extends TestCase
         $logger->error('foo', ['bar']);
     }
 
-    public function test_it_uses_the_default_stripe_logger()
+    public function test_it_uses_the_default_square_logger()
     {
-        $logger = Stripe::getLogger();
+        $logger = ApiClient::getDefaultLogger();
 
         $this->assertInstanceOf(
             DefaultLogger::class,
             $logger,
-            'Failed asserting that Stripe uses its own logger.'
+            'Failed asserting that Square uses its own logger.'
         );
     }
 
@@ -72,12 +72,12 @@ class LoggerTest extends TestCase
 
         $this->refreshApplication();
 
-        $logger = Stripe::getLogger();
+        $logger = ApiClient::getDefaultLogger();
 
         $this->assertInstanceOf(
             Logger::class,
             $logger,
-            'Failed asserting that Stripe uses the Cashier logger.'
+            'Failed asserting that Square uses the Cashier logger.'
         );
     }
 

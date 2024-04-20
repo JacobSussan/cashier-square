@@ -4,9 +4,9 @@ namespace Laravel\Cashier\Tests\Feature;
 
 use Exception;
 use InvalidArgumentException;
-use Stripe\Exception\InvalidRequestException;
+use Square\Exception\InvalidRequestException;
 
-class MeteredBillingTest extends FeatureTestCase
+class SquareBillingTest extends FeatureTestCase
 {
     /**
      * @var string
@@ -36,12 +36,12 @@ class MeteredBillingTest extends FeatureTestCase
 
         parent::setUpBeforeClass();
 
-        static::$productId = self::stripe()->products->create([
+        static::$productId = self::square()->products->create([
             'name' => 'Laravel Cashier Test Product',
             'type' => 'service',
         ])->id;
 
-        static::$meteredPrice = self::stripe()->prices->create([
+        static::$meteredPrice = self::square()->prices->create([
             'product' => static::$productId,
             'nickname' => 'Monthly Metered $1 per unit',
             'currency' => 'USD',
@@ -52,7 +52,7 @@ class MeteredBillingTest extends FeatureTestCase
             'unit_amount' => 100,
         ])->id;
 
-        static::$otherMeteredPrice = self::stripe()->prices->create([
+        static::$otherMeteredPrice = self::square()->prices->create([
             'product' => static::$productId,
             'nickname' => 'Monthly Metered $2 per unit',
             'currency' => 'USD',
@@ -63,7 +63,7 @@ class MeteredBillingTest extends FeatureTestCase
             'unit_amount' => 200,
         ])->id;
 
-        static::$licensedPrice = self::stripe()->prices->create([
+        static::$licensedPrice = self::square()->prices->create([
             'product' => static::$productId,
             'nickname' => 'Monthly $10 Licensed',
             'currency' => 'USD',
@@ -148,113 +148,113 @@ class MeteredBillingTest extends FeatureTestCase
             ->meteredPrice(static::$meteredPrice)
             ->create('pm_card_visa');
 
-        $this->assertSame(static::$meteredPrice, $subscription->stripe_price);
+        $this->assertSame(static::$meteredPrice, $subscription->square_price);
         $this->assertNull($subscription->quantity);
 
         $subscription = $subscription->swap(static::$otherMeteredPrice);
 
-        $this->assertSame(static::$otherMeteredPrice, $subscription->stripe_price);
+        $this->assertSame(static::$otherMeteredPrice, $subscription->square_price);
         $this->assertNull($subscription->quantity);
 
         $subscription = $subscription->swap(static::$licensedPrice);
 
-        $this->assertSame(static::$licensedPrice, $subscription->stripe_price);
+        $this->assertSame(static::$licensedPrice, $subscription->square_price);
         $this->assertSame(1, $subscription->quantity);
     }
-
+    
     public function test_swap_metered_price_to_different_price_with_a_subscription_with_multiple_prices()
     {
         $user = $this->createCustomer('swap_metered_price_to_different_price_with_a_subscription_with_multiple_prices');
-
+    
         $subscription = $user->newSubscription('main')
             ->meteredPrice(static::$meteredPrice)
             ->create('pm_card_visa');
-
-        $this->assertSame(static::$meteredPrice, $subscription->stripe_price);
+    
+        $this->assertSame(static::$meteredPrice, $subscription->square_price);
         $this->assertNull($subscription->quantity);
-
+    
         $subscription = $subscription->swap([static::$meteredPrice, static::$otherMeteredPrice]);
-
+    
         $item = $subscription->findItemOrFail(self::$meteredPrice);
         $otherItem = $subscription->findItemOrFail(self::$otherMeteredPrice);
-
+    
         $this->assertCount(2, $subscription->items);
-        $this->assertNull($subscription->stripe_price);
+        $this->assertNull($subscription->square_price);
         $this->assertNull($subscription->quantity);
-        $this->assertSame(self::$meteredPrice, $item->stripe_price);
+        $this->assertSame(self::$meteredPrice, $item->square_price);
         $this->assertNull($item->quantity);
-        $this->assertSame(self::$otherMeteredPrice, $otherItem->stripe_price);
+        $this->assertSame(self::$otherMeteredPrice, $otherItem->square_price);
         $this->assertNull($otherItem->quantity);
-
+    
         $subscription = $subscription->swap(static::$otherMeteredPrice);
-
+    
         $this->assertCount(1, $subscription->items);
-        $this->assertSame(self::$otherMeteredPrice, $subscription->stripe_price);
+        $this->assertSame(self::$otherMeteredPrice, $subscription->square_price);
         $this->assertNull($subscription->quantity);
-
+    
         $subscription = $subscription->swap(static::$licensedPrice);
-
+    
         $this->assertCount(1, $subscription->items);
-        $this->assertSame(self::$licensedPrice, $subscription->stripe_price);
+        $this->assertSame(self::$licensedPrice, $subscription->square_price);
         $this->assertSame(1, $subscription->quantity);
-
+    
         $subscription = $subscription->swap([static::$licensedPrice, static::$meteredPrice]);
-
+    
         $this->assertCount(2, $subscription->items);
-        $this->assertNull($subscription->stripe_price);
+        $this->assertNull($subscription->square_price);
         $this->assertNull($subscription->quantity);
     }
-
+    
     public function test_add_metered_price_to_a_subscription_with_multiple_prices()
     {
         $user = $this->createCustomer('add_metered_price_to_a_subscription_with_multiple_prices');
-
+    
         $subscription = $user->newSubscription('main')
             ->meteredPrice(static::$meteredPrice)
             ->create('pm_card_visa');
-
-        $this->assertSame(static::$meteredPrice, $subscription->stripe_price);
+    
+        $this->assertSame(static::$meteredPrice, $subscription->square_price);
         $this->assertNull($subscription->quantity);
-
+    
         $subscription = $subscription->addMeteredPrice(static::$otherMeteredPrice);
-
+    
         $subscription->findItemOrFail(self::$meteredPrice);
         $subscription->findItemOrFail(self::$otherMeteredPrice);
-
+    
         $this->assertCount(2, $subscription->items);
-        $this->assertNull($subscription->stripe_price);
+        $this->assertNull($subscription->square_price);
         $this->assertNull($subscription->quantity);
     }
-
+    
     public function test_cancel_metered_subscription()
     {
         $user = $this->createCustomer('cancel_metered_subscription');
-
+    
         $subscription = $user->newSubscription('main')
             ->meteredPrice(static::$meteredPrice)
             ->create('pm_card_visa');
-
+    
         $subscription->reportUsage(10);
-
+    
         $subscription->cancel();
-
+    
         $invoice = $user->upcomingInvoice();
-
+    
         $this->assertEquals('$10.00', $invoice->total());
     }
-
+    
     public function test_cancel_metered_subscription_immediately()
     {
         $user = $this->createCustomer('cancel_metered_subscription_immediately');
-
+    
         $subscription = $user->newSubscription('main')
             ->meteredPrice(static::$meteredPrice)
             ->create('pm_card_visa');
-
+    
         $subscription->reportUsage(10);
-
+    
         $subscription->cancelNowAndInvoice();
-
+    
         $this->assertNull($user->upcomingInvoice());
         $this->assertCount(2, $invoices = $user->invoicesIncludingPending());
         $this->assertEquals('$10.00', $invoices->first()->total());

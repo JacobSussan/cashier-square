@@ -2,7 +2,7 @@
 
 namespace Laravel\Cashier\Tests\Feature;
 
-use Stripe\Exception\CardException as StripeCardException;
+use Square\Exceptions\ApiException as SquareApiException;
 
 class PendingUpdatesTest extends FeatureTestCase
 {
@@ -34,62 +34,76 @@ class PendingUpdatesTest extends FeatureTestCase
 
         parent::setUpBeforeClass();
 
-        static::$productId = self::stripe()->products->create([
-            'name' => 'Laravel Cashier Test Product',
-            'type' => 'service',
-        ])->id;
-
-        static::$priceId = self::stripe()->prices->create([
-            'product' => static::$productId,
-            'nickname' => 'Monthly $10',
-            'currency' => 'USD',
-            'recurring' => [
-                'interval' => 'month',
+        static::$productId = self::square()->catalogApi->createCatalogObject([
+            'type' => 'ITEM',
+            'idempotency_key' => uniqid(),
+            'item_data' => [
+                'name' => 'Laravel Cashier Test Product',
+                'description' => 'Test product for Laravel Cashier',
+                'available_online' => true,
             ],
-            'billing_scheme' => 'per_unit',
-            'unit_amount' => 1000,
-        ])->id;
+        ])->getObject()->getId();
 
-        static::$otherPriceId = self::stripe()->prices->create([
-            'product' => static::$productId,
-            'nickname' => 'Monthly $10 Other',
-            'currency' => 'USD',
-            'recurring' => [
-                'interval' => 'month',
+        static::$priceId = self::square()->catalogApi->createCatalogObject([
+            'type' => 'ITEM_VARIATION',
+            'idempotency_key' => uniqid(),
+            'item_variation_data' => [
+                'item_id' => static::$productId,
+                'name' => 'Monthly $10',
+                'pricing_type' => 'FIXED_PRICING',
+                'price_money' => [
+                    'amount' => 1000,
+                    'currency' => 'USD',
+                ],
             ],
-            'billing_scheme' => 'per_unit',
-            'unit_amount' => 1000,
-        ])->id;
+        ])->getObject()->getId();
 
-        static::$premiumPriceId = self::stripe()->prices->create([
-            'product' => static::$productId,
-            'nickname' => 'Monthly $20 Premium',
-            'currency' => 'USD',
-            'recurring' => [
-                'interval' => 'month',
+        static::$otherPriceId = self::square()->catalogApi->createCatalogObject([
+            'type' => 'ITEM_VARIATION',
+            'idempotency_key' => uniqid(),
+            'item_variation_data' => [
+                'item_id' => static::$productId,
+                'name' => 'Monthly $10 Other',
+                'pricing_type' => 'FIXED_PRICING',
+                'price_money' => [
+                    'amount' => 1000,
+                    'currency' => 'USD',
+                ],
             ],
-            'billing_scheme' => 'per_unit',
-            'unit_amount' => 2000,
-        ])->id;
+        ])->getObject()->getId();
+
+        static::$premiumPriceId = self::square()->catalogApi->createCatalogObject([
+            'type' => 'ITEM_VARIATION',
+            'idempotency_key' => uniqid(),
+            'item_variation_data' => [
+                'item_id' => static::$productId,
+                'name' => 'Monthly $20 Premium',
+                'pricing_type' => 'FIXED_PRICING',
+                'price_money' => [
+                    'amount' => 2000,
+                    'currency' => 'USD',
+                ],
+            ],
+        ])->getObject()->getId();
     }
 
     public function test_subscription_can_error_if_incomplete()
     {
         $user = $this->createCustomer('subscription_can_error_if_incomplete');
 
-        $subscription = $user->newSubscription('main', static::$priceId)->create('pm_card_visa');
+        $subscription = $user->newSubscription('main', static::$priceId)->create('cnon:card-nonce-ok');
 
         // Set a faulty card as the customer's default payment method.
-        $user->updateDefaultPaymentMethod('pm_card_threeDSecure2Required');
+        $user->updateDefaultPaymentMethod('cnon:card-nonce-requires-verification');
 
         try {
             // Attempt to swap and pay with a faulty card.
             $subscription = $subscription->errorIfPaymentFails()->swapAndInvoice(static::$premiumPriceId);
 
-            $this->fail('Expected exception '.StripeCardException::class.' was not thrown.');
-        } catch (StripeCardException $e) {
+            $this->fail('Expected exception '.SquareApiException::class.' was not thrown.');
+        } catch (SquareApiException $e) {
             // Assert that the price was not swapped.
-            $this->assertEquals(static::$priceId, $subscription->refresh()->stripe_price);
+            $this->assertEquals(static::$priceId, $subscription->refresh()->square_price);
 
             // Assert subscription is active.
             $this->assertTrue($subscription->active());
@@ -115,7 +129,7 @@ class PendingUpdatesTest extends FeatureTestCase
     //         $this->assertTrue($e->payment->requiresAction());
     //
     //         // Assert that the price was not swapped.
-    //         $this->assertEquals(static::$priceId, $subscription->refresh()->stripe_price);
+    //         $this->assertEquals(static::$priceId, $subscription->refresh()->square_price);
     //
     //         // Assert subscription is active.
     //         $this->assertTrue($subscription->active());
