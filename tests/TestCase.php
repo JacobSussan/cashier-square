@@ -18,7 +18,7 @@ abstract class TestCase extends OrchestraTestCase
         $apiKey = config('cashier.secret');
 
         if ($apiKey && ! Str::startsWith($apiKey, 'sk_test_')) {
-            throw new InvalidArgumentException('Tests may not be run with a production Stripe key.');
+            throw new InvalidArgumentException('Tests may not be run with a production Square key.');
         }
 
         Cashier::useCustomerModel(User::class);

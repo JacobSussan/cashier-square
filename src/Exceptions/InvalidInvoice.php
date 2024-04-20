@@ -3,19 +3,19 @@
 namespace Laravel\Cashier\Exceptions;
 
 use Exception;
-use Stripe\Invoice as StripeInvoice;
+use Square\Invoice as SquareInvoice;
 
 class InvalidInvoice extends Exception
 {
     /**
      * Create a new InvalidInvoice instance.
      *
-     * @param  \Stripe\Invoice  $invoice
+     * @param  \Square\Invoice  $invoice
      * @param  \Illuminate\Database\Eloquent\Model  $owner
      * @return static
      */
-    public static function invalidOwner(StripeInvoice $invoice, $owner)
+    public static function invalidOwner(SquareInvoice $invoice, $owner)
     {
-        return new static("The invoice `{$invoice->id}` does not belong to this customer `$owner->stripe_id`.");
+        return new static("The invoice `{$invoice->id}` does not belong to this customer `$owner->square_id`.");
     }
 }

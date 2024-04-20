@@ -1,7 +1,7 @@
 {
     "name": "laravel/cashier",
-    "description": "Laravel Cashier provides an expressive, fluent interface to Stripe's subscription billing services.",
-    "keywords": ["laravel", "stripe", "billing"],
+    "description": "Laravel Cashier provides an expressive, fluent interface to Square's subscription billing services.",
+    "keywords": ["laravel", "square", "billing"],
     "license": "MIT",
     "support": {
         "issues": "https://github.com/laravel/cashier/issues",
@@ -33,7 +33,6 @@
         "moneyphp/money": "^4.0",
         "nesbot/carbon": "^2.0|^3.0",
         "square/square": "36.0.0.20240417",
-        "stripe/stripe-php": "^13.0",
         "symfony/console": "^6.0|^7.0",
         "symfony/http-kernel": "^6.0|^7.0",
         "symfony/polyfill-intl-icu": "^1.22.1"

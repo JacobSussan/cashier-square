@@ -11,28 +11,28 @@ use Illuminate\Support\Str;
 use JsonSerializable;
 use Laravel\Cashier\Contracts\InvoiceRenderer;
 use Laravel\Cashier\Exceptions\InvalidInvoice;
-use Stripe\Customer as StripeCustomer;
-use Stripe\Invoice as StripeInvoice;
+use Square\Models\Customer as SquareCustomer;
+use Square\Models\Invoice as SquareInvoice;
 use Symfony\Component\HttpFoundation\Response;
 
 class Invoice implements Arrayable, Jsonable, JsonSerializable
 {
     /**
-     * The Stripe model instance.
+     * The Square model instance.
      *
      * @var \Illuminate\Database\Eloquent\Model
      */
     protected $owner;
 
     /**
-     * The Stripe invoice instance.
+     * The Square invoice instance.
      *
-     * @var \Stripe\Invoice
+     * @var \Square\Invoice
      */
     protected $invoice;
 
     /**
-     * The Stripe invoice line items.
+     * The Square invoice line items.
      *
      * @var \Laravel\Cashier\InvoiceLineItem[]
      */
@@ -53,7 +53,7 @@ class Invoice implements Arrayable, Jsonable, JsonSerializable
     protected $discounts;
 
     /**
-     * Indicate if the Stripe Object was refreshed with extra data.
+     * Indicate if the Square Object was refreshed with extra data.
      *
      * @var bool
      */
@@ -70,15 +70,15 @@ class Invoice implements Arrayable, Jsonable, JsonSerializable
      * Create a new invoice instance.
      *
      * @param  \Illuminate\Database\Eloquent\Model  $owner
-     * @param  \Stripe\Invoice  $invoice
+     * @param  \Square\Invoice  $invoice
      * @param  array  $refreshData
      * @return void
      *
      * @throws \Laravel\Cashier\Exceptions\InvalidInvoice
      */
-    public function __construct($owner, StripeInvoice $invoice, array $refreshData = [])
+    public function __construct($owner, SquareInvoice $invoice, array $refreshData = [])
     {
-        if ($owner->stripe_id !== $invoice->customer) {
+        if ($owner->square_id !== $invoice->customer) {
             throw InvalidInvoice::invalidOwner($invoice, $owner);
         }
 
@@ -290,7 +290,7 @@ class Invoice implements Arrayable, Jsonable, JsonSerializable
     }
 
     /**
-     * Get all of the discount objects from the Stripe invoice.
+     * Get all of the discount objects from the Square invoice.
      *
      * @return \Laravel\Cashier\Discount[]
      */
@@ -417,7 +417,7 @@ class Invoice implements Arrayable, Jsonable, JsonSerializable
      */
     public function isNotTaxExempt()
     {
-        return $this->invoice->customer_tax_exempt === StripeCustomer::TAX_EXEMPT_NONE;
+        return $this->invoice->customer_tax_exempt === SquareCustomer::TAX_EXEMPT_NONE;
     }
 
     /**
@@ -427,7 +427,7 @@ class Invoice implements Arrayable, Jsonable, JsonSerializable
      */
     public function isTaxExempt()
     {
-        return $this->invoice->customer_tax_exempt === StripeCustomer::TAX_EXEMPT_EXEMPT;
+        return $this->invoice->customer_tax_exempt === SquareCustomer::TAX_EXEMPT_EXEMPT;
     }
 
     /**
@@ -437,7 +437,7 @@ class Invoice implements Arrayable, Jsonable, JsonSerializable
      */
     public function reverseChargeApplies()
     {
-        return $this->invoice->customer_tax_exempt === StripeCustomer::TAX_EXEMPT_REVERSE;
+        return $this->invoice->customer_tax_exempt === SquareCustomer::TAX_EXEMPT_REVERSE;
     }
 
     /**
@@ -447,7 +447,7 @@ class Invoice implements Arrayable, Jsonable, JsonSerializable
      */
     public function chargesAutomatically()
     {
-        return $this->invoice->collection_method === StripeInvoice::COLLECTION_METHOD_CHARGE_AUTOMATICALLY;
+        return $this->invoice->collection_method === SquareInvoice::COLLECTION_METHOD_CHARGE_AUTOMATICALLY;
     }
 
     /**
@@ -457,7 +457,7 @@ class Invoice implements Arrayable, Jsonable, JsonSerializable
      */
     public function sendsInvoice()
     {
-        return $this->invoice->collection_method === StripeInvoice::COLLECTION_METHOD_SEND_INVOICE;
+        return $this->invoice->collection_method === SquareInvoice::COLLECTION_METHOD_SEND_INVOICE;
     }
 
     /**
@@ -524,7 +524,7 @@ class Invoice implements Arrayable, Jsonable, JsonSerializable
      * @param  string  $description
      * @param  int  $amount
      * @param  array  $options
-     * @return \Stripe\InvoiceItem
+     * @return \Square\InvoiceItem
      */
     public function tab($description, $amount, array $options = [])
     {
@@ -541,7 +541,7 @@ class Invoice implements Arrayable, Jsonable, JsonSerializable
      * @param  string  $price
      * @param  int  $quantity
      * @param  array  $options
-     * @return \Stripe\InvoiceItem
+     * @return \Square\InvoiceItem
      */
     public function tabPrice($price, $quantity = 1, array $options = [])
     {
@@ -584,13 +584,13 @@ class Invoice implements Arrayable, Jsonable, JsonSerializable
         ];
 
         if (isset($this->invoice->id) && $this->invoice->id) {
-            $this->invoice = $this->owner->stripe()->invoices->retrieve($this->invoice->id, [
+            $this->invoice = $this->owner->square()->invoices->retrieve($this->invoice->id, [
                 'expand' => $expand,
             ]);
         } else {
             // If no invoice ID is present then assume this is the customer's upcoming invoice...
-            $this->invoice = $this->owner->stripe()->invoices->upcoming(array_merge($this->refreshData, [
-                'customer' => $this->owner->stripe_id,
+            $this->invoice = $this->owner->square()->invoices->upcoming(array_merge($this->refreshData, [
+                'customer' => $this->owner->square_id,
                 'expand' => $expand,
             ]));
         }
@@ -612,7 +612,7 @@ class Invoice implements Arrayable, Jsonable, JsonSerializable
     /**
      * Return the Tax Ids of the account.
      *
-     * @return \Stripe\TaxId[]
+     * @return \Square\TaxId[]
      */
     public function accountTaxIds()
     {
@@ -632,7 +632,7 @@ class Invoice implements Arrayable, Jsonable, JsonSerializable
     }
 
     /**
-     * Finalize the Stripe invoice.
+     * Finalize the Square invoice.
      *
      * @param  array  $options
      * @return $this
@@ -645,7 +645,7 @@ class Invoice implements Arrayable, Jsonable, JsonSerializable
     }
 
     /**
-     * Pay the Stripe invoice.
+     * Pay the Square invoice.
      *
      * @param  array  $options
      * @return $this
@@ -658,7 +658,7 @@ class Invoice implements Arrayable, Jsonable, JsonSerializable
     }
 
     /**
-     * Send the Stripe invoice to the customer.
+     * Send the Square invoice to the customer.
      *
      * @param  array  $options
      * @return $this
@@ -671,7 +671,7 @@ class Invoice implements Arrayable, Jsonable, JsonSerializable
     }
 
     /**
-     * Void the Stripe invoice.
+     * Void the Square invoice.
      *
      * @param  array  $options
      * @return $this
@@ -697,7 +697,7 @@ class Invoice implements Arrayable, Jsonable, JsonSerializable
     }
 
     /**
-     * Delete the Stripe invoice.
+     * Delete the Square invoice.
      *
      * @param  array  $options
      * @return $this
@@ -716,7 +716,7 @@ class Invoice implements Arrayable, Jsonable, JsonSerializable
      */
     public function isOpen()
     {
-        return $this->invoice->status === StripeInvoice::STATUS_OPEN;
+        return $this->invoice->status === SquareInvoice::STATUS_OPEN;
     }
 
     /**
@@ -726,7 +726,7 @@ class Invoice implements Arrayable, Jsonable, JsonSerializable
      */
     public function isDraft()
     {
-        return $this->invoice->status === StripeInvoice::STATUS_DRAFT;
+        return $this->invoice->status === SquareInvoice::STATUS_DRAFT;
     }
 
     /**
@@ -736,7 +736,7 @@ class Invoice implements Arrayable, Jsonable, JsonSerializable
      */
     public function isPaid()
     {
-        return $this->invoice->status === StripeInvoice::STATUS_PAID;
+        return $this->invoice->status === SquareInvoice::STATUS_PAID;
     }
 
     /**
@@ -746,7 +746,7 @@ class Invoice implements Arrayable, Jsonable, JsonSerializable
      */
     public function isUncollectible()
     {
-        return $this->invoice->status === StripeInvoice::STATUS_UNCOLLECTIBLE;
+        return $this->invoice->status === SquareInvoice::STATUS_UNCOLLECTIBLE;
     }
 
     /**
@@ -756,7 +756,7 @@ class Invoice implements Arrayable, Jsonable, JsonSerializable
      */
     public function isVoid()
     {
-        return $this->invoice->status === StripeInvoice::STATUS_VOID;
+        return $this->invoice->status === SquareInvoice::STATUS_VOID;
     }
 
     /**
@@ -824,7 +824,7 @@ class Invoice implements Arrayable, Jsonable, JsonSerializable
     }
 
     /**
-     * Get the Stripe model instance.
+     * Get the Square model instance.
      *
      * @return \Illuminate\Database\Eloquent\Model
      */
@@ -834,11 +834,11 @@ class Invoice implements Arrayable, Jsonable, JsonSerializable
     }
 
     /**
-     * Get the Stripe invoice instance.
+     * Get the Square invoice instance.
      *
-     * @return \Stripe\Invoice
+     * @return \Square\Invoice
      */
-    public function asStripeInvoice()
+    public function asSquareInvoice()
     {
         return $this->invoice;
     }
@@ -850,7 +850,7 @@ class Invoice implements Arrayable, Jsonable, JsonSerializable
      */
     public function toArray()
     {
-        return $this->asStripeInvoice()->toArray();
+        return $this->asSquareInvoice()->toArray();
     }
 
     /**
@@ -876,7 +876,7 @@ class Invoice implements Arrayable, Jsonable, JsonSerializable
     }
 
     /**
-     * Dynamically get values from the Stripe object.
+     * Dynamically get values from the Square object.
      *
      * @param  string  $key
      * @return mixed
