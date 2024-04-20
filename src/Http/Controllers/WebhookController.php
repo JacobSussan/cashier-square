@@ -13,8 +13,8 @@ use Laravel\Cashier\Events\WebhookReceived;
 use Laravel\Cashier\Http\Middleware\VerifyWebhookSignature;
 use Laravel\Cashier\Payment;
 use Laravel\Cashier\Subscription;
-use Stripe\Stripe;
-use Stripe\Subscription as StripeSubscription;
+use Square\SquareClient;
+use Square\Models\Subscription as SquareSubscription;
 use Symfony\Component\HttpFoundation\Response;
 
 class WebhookController extends Controller
@@ -32,7 +32,7 @@ class WebhookController extends Controller
     }
 
     /**
-     * Handle a Stripe webhook call.
+     * Handle a Square webhook call.
      *
      * @param  \Illuminate\Http\Request  $request
      * @return \Symfony\Component\HttpFoundation\Response
@@ -65,12 +65,12 @@ class WebhookController extends Controller
      */
     protected function handleCustomerSubscriptionCreated(array $payload)
     {
-        $user = $this->getUserByStripeId($payload['data']['object']['customer']);
+        $user = $this->getUserBySquareId($payload['data']['object']['customer']);
 
         if ($user) {
             $data = $payload['data']['object'];
 
-            if (! $user->subscriptions->contains('stripe_id', $data['id'])) {
+            if (! $user->subscriptions->contains('square_id', $data['id'])) {
                 if (isset($data['trial_end'])) {
                     $trialEndsAt = Carbon::createFromTimestamp($data['trial_end']);
                 } else {
@@ -82,9 +82,9 @@ class WebhookController extends Controller
 
                 $subscription = $user->subscriptions()->create([
                     'type' => $data['metadata']['type'] ?? $data['metadata']['name'] ?? $this->newSubscriptionType($payload),
-                    'stripe_id' => $data['id'],
-                    'stripe_status' => $data['status'],
-                    'stripe_price' => $isSinglePrice ? $firstItem['price']['id'] : null,
+                    'square_id' => $data['id'],
+                    'square_status' => $data['status'],
+                    'square_price' => $isSinglePrice ? $firstItem['price']['id'] : null,
                     'quantity' => $isSinglePrice && isset($firstItem['quantity']) ? $firstItem['quantity'] : null,
                     'trial_ends_at' => $trialEndsAt,
                     'ends_at' => null,
@@ -92,9 +92,9 @@ class WebhookController extends Controller
 
                 foreach ($data['items']['data'] as $item) {
                     $subscription->items()->create([
-                        'stripe_id' => $item['id'],
-                        'stripe_product' => $item['price']['product'],
-                        'stripe_price' => $item['price']['id'],
+                        'square_id' => $item['id'],
+                        'square_product' => $item['price']['product'],
+                        'square_price' => $item['price']['id'],
                         'quantity' => $item['quantity'] ?? null,
                     ]);
                 }
@@ -110,7 +110,7 @@ class WebhookController extends Controller
     }
 
     /**
-     * Determines the type that should be used when new subscriptions are created from the Stripe dashboard.
+     * Determines the type that should be used when new subscriptions are created from the Square dashboard.
      *
      * @param  array  $payload
      * @return string
@@ -128,14 +128,14 @@ class WebhookController extends Controller
      */
     protected function handleCustomerSubscriptionUpdated(array $payload)
     {
-        if ($user = $this->getUserByStripeId($payload['data']['object']['customer'])) {
+        if ($user = $this->getUserBySquareId($payload['data']['object']['customer'])) {
             $data = $payload['data']['object'];
 
-            $subscription = $user->subscriptions()->firstOrNew(['stripe_id' => $data['id']]);
+            $subscription = $user->subscriptions()->firstOrNew(['square_id' => $data['id']]);
 
             if (
                 isset($data['status']) &&
-                $data['status'] === StripeSubscription::STATUS_INCOMPLETE_EXPIRED
+                $data['status'] === SquareSubscription::STATUS_INCOMPLETE_EXPIRED
             ) {
                 $subscription->items()->delete();
                 $subscription->delete();
@@ -149,7 +149,7 @@ class WebhookController extends Controller
             $isSinglePrice = count($data['items']['data']) === 1;
 
             // Price...
-            $subscription->stripe_price = $isSinglePrice ? $firstItem['price']['id'] : null;
+            $subscription->square_price = $isSinglePrice ? $firstItem['price']['id'] : null;
 
             // Quantity...
             $subscription->quantity = $isSinglePrice && isset($firstItem['quantity']) ? $firstItem['quantity'] : null;
@@ -176,7 +176,7 @@ class WebhookController extends Controller
 
             // Status...
             if (isset($data['status'])) {
-                $subscription->stripe_status = $data['status'];
+                $subscription->square_status = $data['status'];
             }
 
             $subscription->save();
@@ -189,16 +189,16 @@ class WebhookController extends Controller
                     $subscriptionItemIds[] = $item['id'];
 
                     $subscription->items()->updateOrCreate([
-                        'stripe_id' => $item['id'],
+                        'square_id' => $item['id'],
                     ], [
-                        'stripe_product' => $item['price']['product'],
-                        'stripe_price' => $item['price']['id'],
+                        'square_product' => $item['price']['product'],
+                        'square_price' => $item['price']['id'],
                         'quantity' => $item['quantity'] ?? null,
                     ]);
                 }
 
                 // Delete items that aren't attached to the subscription anymore...
-                $subscription->items()->whereNotIn('stripe_id', $subscriptionItemIds)->delete();
+                $subscription->items()->whereNotIn('square_id', $subscriptionItemIds)->delete();
             }
         }
 
@@ -213,9 +213,9 @@ class WebhookController extends Controller
      */
     protected function handleCustomerSubscriptionDeleted(array $payload)
     {
-        if ($user = $this->getUserByStripeId($payload['data']['object']['customer'])) {
+        if ($user = $this->getUserBySquareId($payload['data']['object']['customer'])) {
             $user->subscriptions->filter(function ($subscription) use ($payload) {
-                return $subscription->stripe_id === $payload['data']['object']['id'];
+                return $subscription->square_id === $payload['data']['object']['id'];
             })->each(function ($subscription) {
                 $subscription->skipTrial()->markAsCanceled();
             });
@@ -232,8 +232,8 @@ class WebhookController extends Controller
      */
     protected function handleCustomerUpdated(array $payload)
     {
-        if ($user = $this->getUserByStripeId($payload['data']['object']['id'])) {
-            $user->updateDefaultPaymentMethodFromStripe();
+        if ($user = $this->getUserBySquareId($payload['data']['object']['id'])) {
+            $user->updateDefaultPaymentMethodFromSquare();
         }
 
         return $this->successMethod();
@@ -247,13 +247,13 @@ class WebhookController extends Controller
      */
     protected function handleCustomerDeleted(array $payload)
     {
-        if ($user = $this->getUserByStripeId($payload['data']['object']['id'])) {
+        if ($user = $this->getUserBySquareId($payload['data']['object']['id'])) {
             $user->subscriptions->each(function (Subscription $subscription) {
                 $subscription->skipTrial()->markAsCanceled();
             });
 
             $user->forceFill([
-                'stripe_id' => null,
+                'square_id' => null,
                 'trial_ends_at' => null,
                 'pm_type' => null,
                 'pm_last_four' => null,
@@ -271,8 +271,8 @@ class WebhookController extends Controller
      */
     protected function handlePaymentMethodAutomaticallyUpdated(array $payload)
     {
-        if ($user = $this->getUserByStripeId($payload['data']['object']['customer'])) {
-            $user->updateDefaultPaymentMethodFromStripe();
+        if ($user = $this->getUserBySquareId($payload['data']['object']['customer'])) {
+            $user->updateDefaultPaymentMethodFromSquare();
         }
 
         return $this->successMethod();
@@ -298,9 +298,9 @@ class WebhookController extends Controller
             return $this->successMethod();
         }
 
-        if ($user = $this->getUserByStripeId($payload['data']['object']['customer'])) {
+        if ($user = $this->getUserBySquareId($payload['data']['object']['customer'])) {
             if (in_array(Notifiable::class, class_uses_recursive($user))) {
-                $payment = new Payment($user->stripe()->paymentIntents->retrieve(
+                $payment = new Payment($user->square()->paymentIntents->retrieve(
                     $payload['data']['object']['payment_intent']
                 ));
 
@@ -312,14 +312,14 @@ class WebhookController extends Controller
     }
 
     /**
-     * Get the customer instance by Stripe ID.
+     * Get the customer instance by Square ID.
      *
-     * @param  string|null  $stripeId
+     * @param  string|null  $squareId
      * @return \Laravel\Cashier\Billable|null
      */
-    protected function getUserByStripeId($stripeId)
+    protected function getUserBySquareId($squareId)
     {
-        return Cashier::findBillable($stripeId);
+        return Cashier::findBillable($squareId);
     }
 
     /**
@@ -345,13 +345,13 @@ class WebhookController extends Controller
     }
 
     /**
-     * Set the number of automatic retries due to an object lock timeout from Stripe.
+     * Set the number of automatic retries due to an object lock timeout from Square.
      *
      * @param  int  $retries
      * @return void
      */
     protected function setMaxNetworkRetries($retries = 3)
     {
-        Stripe::setMaxNetworkRetries($retries);
+        Square::setMaxNetworkRetries($retries);
     }
 }

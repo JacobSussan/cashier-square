@@ -14,6 +14,6 @@ class InvalidCustomer extends Exception
      */
     public static function notYetCreated($owner)
     {
-        return new static(class_basename($owner).' is not a Stripe customer yet. See the createAsStripeCustomer method.');
+        return new static(class_basename($owner).' is not a Square customer yet. See the createAsSquareCustomer method.');
     }
 }
