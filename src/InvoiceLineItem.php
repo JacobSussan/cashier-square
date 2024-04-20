@@ -7,8 +7,8 @@ use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Contracts\Support\Jsonable;
 use Illuminate\Support\Collection;
 use JsonSerializable;
-use Square\Models\OrderLineItem as SquareOrderLineItem;
-use Square\Models\Money as SquareMoney;
+use Square\Models\InvoiceLineItem as SquareInvoiceLineItem;
+use Square\Models\Tax as SquareTax;
 
 class InvoiceLineItem implements Arrayable, Jsonable, JsonSerializable
 {
@@ -20,9 +20,9 @@ class InvoiceLineItem implements Arrayable, Jsonable, JsonSerializable
     protected $invoice;
 
     /**
-     * The Square order line item instance.
+     * The Square invoice line item instance.
      *
-     * @var \Square\Models\OrderLineItem
+     * @var \Square\Models\InvoiceLineItem
      */
     protected $item;
 
@@ -30,10 +30,10 @@ class InvoiceLineItem implements Arrayable, Jsonable, JsonSerializable
      * Create a new invoice line item instance.
      *
      * @param  \Laravel\Cashier\Invoice  $invoice
-     * @param  \Square\Models\OrderLineItem  $item
+     * @param  \Square\Models\InvoiceLineItem  $item
      * @return void
      */
-    public function __construct(Invoice $invoice, SquareOrderLineItem $item)
+    public function __construct(Invoice $invoice, SquareInvoiceLineItem $item)
     {
         $this->invoice = $invoice;
         $this->item = $item;
@@ -46,7 +46,7 @@ class InvoiceLineItem implements Arrayable, Jsonable, JsonSerializable
      */
     public function total()
     {
-        return $this->formatAmount($this->item->getTotalMoney());
+        return $this->formatAmount($this->item->amount);
     }
 
     /**
@@ -56,25 +56,190 @@ class InvoiceLineItem implements Arrayable, Jsonable, JsonSerializable
      */
     public function unitAmountExcludingTax()
     {
-        // Assuming taxes are included in the total price and need to be subtracted
-        $totalMoney = $this->item->getTotalMoney();
-        $taxMoney = $this->item->getTaxMoney();
-        $unitAmountExcludingTax = $totalMoney->getAmount() - $taxMoney->getAmount();
-        
-        return $this->formatAmount(new SquareMoney($unitAmountExcludingTax, $totalMoney->getCurrency()));
+        return $this->formatAmount($this->item->unit_amount_excluding_tax ?? 0);
     }
 
-    // ... (other methods would need to be updated accordingly)
+    /**
+     * Determine if the line item has both inclusive and exclusive tax.
+     *
+     * @return bool
+     */
+    public function hasBothInclusiveAndExclusiveTax()
+    {
+        return $this->inclusiveTaxPercentage() && $this->exclusiveTaxPercentage();
+    }
+
+    /**
+     * Get the total percentage of the default inclusive tax for the invoice line item.
+     *
+     * @return int|null
+     */
+    public function inclusiveTaxPercentage()
+    {
+        if ($this->invoice->isNotTaxExempt()) {
+            return $this->calculateTaxPercentageByTaxAmount(true);
+        }
+
+        return $this->calculateTaxPercentageByTaxRate(true);
+    }
+
+    /**
+     * Get the total percentage of the default exclusive tax for the invoice line item.
+     *
+     * @return int
+     */
+    public function exclusiveTaxPercentage()
+    {
+        if ($this->invoice->isNotTaxExempt()) {
+            return $this->calculateTaxPercentageByTaxAmount(false);
+        }
+
+        return $this->calculateTaxPercentageByTaxRate(false);
+    }
+
+    /**
+     * Calculate the total tax percentage for either the inclusive or exclusive tax by tax rate.
+     *
+     * @param  bool  $inclusive
+     * @return int
+     */
+    protected function calculateTaxPercentageByTaxRate($inclusive)
+    {
+        if (! $this->item->taxRates) {
+            return 0;
+        }
+
+        return (int) array_reduce($this->item->taxRates, function ($carry, $taxRate) use ($inclusive) {
+            if ($taxRate->isInclusive() === (bool) $inclusive) {
+                $carry += $taxRate->getPercentage();
+            }
+            return $carry;
+        }, 0);
+    }
+
+
+    /**
+     * Calculate the total tax percentage for either the inclusive or exclusive tax by tax amount.
+     *
+     * @param  bool  $inclusive
+     * @return int
+     */
+    protected function calculateTaxPercentageByTaxAmount($inclusive)
+    {
+        if (! $this->item->tax_amounts) {
+            return 0;
+        }
+
+        return (int) Collection::make($this->item->tax_amounts)
+            ->filter(function (object $taxAmount) use ($inclusive) {
+                return $taxAmount->inclusive === (bool) $inclusive;
+            })
+            ->sum(function (object $taxAmount) {
+                return $taxAmount->tax_rate->percentage;
+            });
+    }
+
+    /**
+     * Determine if the invoice line item has tax rates.
+     *
+     * @return bool
+     */
+    public function hasTaxRates()
+    {
+        if ($this->invoice->isNotTaxExempt()) {
+            return ! empty($this->item->tax_amounts);
+        }
+
+        return ! empty($this->item->tax_rates);
+    }
+
+    /**
+     * Get a human readable date for the start date.
+     *
+     * @return string|null
+     */
+    public function startDate()
+    {
+        if ($this->hasPeriod()) {
+            return $this->startDateAsCarbon()->toFormattedDateString();
+        }
+    }
+
+    /**
+     * Get a human readable date for the end date.
+     *
+     * @return string|null
+     */
+    public function endDate()
+    {
+        if ($this->hasPeriod()) {
+            return $this->endDateAsCarbon()->toFormattedDateString();
+        }
+    }
+
+    /**
+     * Get a Carbon instance for the start date.
+     *
+     * @return \Carbon\Carbon|null
+     */
+    public function startDateAsCarbon()
+    {
+        if ($this->hasPeriod()) {
+            return Carbon::createFromTimestampUTC($this->item->period->start);
+        }
+    }
+
+    /**
+     * Get a Carbon instance for the end date.
+     *
+     * @return \Carbon\Carbon|null
+     */
+    public function endDateAsCarbon()
+    {
+        if ($this->hasPeriod()) {
+            return Carbon::createFromTimestampUTC($this->item->period->end);
+        }
+    }
+
+    /**
+     * Determine if the invoice line item has a defined period.
+     *
+     * @return bool
+     */
+    public function hasPeriod()
+    {
+        return ! is_null($this->item->period);
+    }
+
+    /**
+     * Determine if the invoice line item has a period with the same start and end date.
+     *
+     * @return bool
+     */
+    public function periodStartAndEndAreEqual()
+    {
+        return $this->hasPeriod() ? $this->item->period->start === $this->item->period->end : false;
+    }
+
+    /**
+     * Determine if the invoice line item is for a subscription.
+     *
+     * @return bool
+     */
+    public function isSubscription()
+    {
+        return $this->item->type === 'subscription';
+    }
 
     /**
      * Format the given amount into a displayable currency.
      *
-     * @param  \Square\Models\Money  $money
+     * @param  int  $amount
      * @return string
      */
-    protected function formatAmount(SquareMoney $money)
+    protected function formatAmount($amount)
     {
-        return Cashier::formatAmount($money->getAmount(), $money->getCurrency());
+        return Cashier::formatAmount($amount, $this->item->currency);
     }
 
     /**
@@ -88,11 +253,11 @@ class InvoiceLineItem implements Arrayable, Jsonable, JsonSerializable
     }
 
     /**
-     * Get the underlying Square order line item.
+     * Get the underlying Square invoice line item.
      *
-     * @return \Square\Models\OrderLineItem
+     * @return \Square\Models\InvoiceLineItem
      */
-    public function asSquareOrderLineItem()
+    public function asSquareInvoiceLineItem()
     {
         return $this->item;
     }
@@ -104,15 +269,7 @@ class InvoiceLineItem implements Arrayable, Jsonable, JsonSerializable
      */
     public function toArray()
     {
-        // TODO: finish this
-        return [
-            'uid' => $this->item->getUid(),
-            'name' => $this->item->getName(),
-            'quantity' => $this->item->getQuantity(),
-            'base_price_money' => $this->item->getBasePriceMoney()->getAmount(),
-            'total_money' => $this->item->getTotalMoney()->getAmount(),
-            'total_tax_money' => $this->item->getTaxMoney()->getAmount(),
-        ];
+        return $this->asSquareInvoiceLineItem()->toArray();
     }
 
     /**
@@ -138,17 +295,13 @@ class InvoiceLineItem implements Arrayable, Jsonable, JsonSerializable
     }
 
     /**
-     * Dynamically access the Square order line item instance.
+     * Dynamically access the Square invoice line item instance.
      *
      * @param  string  $key
      * @return mixed
      */
     public function __get($key)
     {
-        $getter = 'get'.ucfirst($key);
-        if (method_exists($this->item, $getter)) {
-            return $this->item->{$getter}();
-        }
-        return null;
+        return $this->item->{$key};
     }
 }
