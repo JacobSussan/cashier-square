@@ -18,7 +18,7 @@ class CheckoutTest extends FeatureTestCase
     {
         $user = $this->createCustomer('customers_can_start_a_product_checkout_session');
 
-        $shirtPrice = self::stripe()->prices->create([
+        $shirtPrice = self::square()->prices->create([
             'currency' => 'USD',
             'product_data' => [
                 'name' => 'T-shirt',
@@ -26,7 +26,7 @@ class CheckoutTest extends FeatureTestCase
             'unit_amount' => 1500,
         ]);
 
-        $carPrice = self::stripe()->prices->create([
+        $carPrice = self::square()->prices->create([
             'currency' => 'USD',
             'product_data' => [
                 'name' => 'Car',
@@ -48,7 +48,7 @@ class CheckoutTest extends FeatureTestCase
     {
         $user = $this->createCustomer('customers_can_start_a_product_checkout_session_with_a_coupon_applied');
 
-        $shirtPrice = self::stripe()->prices->create([
+        $shirtPrice = self::square()->prices->create([
             'currency' => 'USD',
             'product_data' => [
                 'name' => 'T-shirt',
@@ -56,7 +56,7 @@ class CheckoutTest extends FeatureTestCase
             'unit_amount' => 1500,
         ]);
 
-        $coupon = self::stripe()->coupons->create([
+        $coupon = self::square()->coupons->create([
             'duration' => 'repeating',
             'amount_off' => 500,
             'duration_in_months' => 3,
@@ -88,7 +88,7 @@ class CheckoutTest extends FeatureTestCase
     {
         $user = $this->createCustomer('customers_can_start_a_subscription_checkout_session');
 
-        $price = self::stripe()->prices->create([
+        $price = self::square()->prices->create([
             'currency' => 'USD',
             'product_data' => [
                 'name' => 'Forge',
@@ -98,7 +98,7 @@ class CheckoutTest extends FeatureTestCase
             'unit_amount' => 1500,
         ]);
 
-        $taxRate = self::stripe()->taxRates->create([
+        $taxRate = self::square()->taxRates->create([
             'display_name' => 'VAT',
             'description' => 'VAT Belgium',
             'jurisdiction' => 'BE',
@@ -119,7 +119,7 @@ class CheckoutTest extends FeatureTestCase
         $this->assertTrue($checkout->allow_promotion_codes);
         $this->assertSame(1815, $checkout->amount_total);
 
-        $coupon = self::stripe()->coupons->create([
+        $coupon = self::square()->coupons->create([
             'duration' => 'repeating',
             'amount_off' => 500,
             'duration_in_months' => 3,
@@ -140,7 +140,7 @@ class CheckoutTest extends FeatureTestCase
 
     public function test_guest_customers_can_start_a_checkout_session()
     {
-        $shirtPrice = self::stripe()->prices->create([
+        $shirtPrice = self::square()->prices->create([
             'currency' => 'USD',
             'product_data' => [
                 'name' => 'T-shirt',
@@ -160,7 +160,7 @@ class CheckoutTest extends FeatureTestCase
     {
         $user = $this->createCustomer('customers_can_start_an_embedded_product_checkout_session');
 
-        $shirtPrice = self::stripe()->prices->create([
+        $shirtPrice = self::square()->prices->create([
             'currency' => 'USD',
             'product_data' => [
                 'name' => 'T-shirt',
@@ -182,7 +182,7 @@ class CheckoutTest extends FeatureTestCase
     {
         $user = $this->createCustomer('customers_can_start_an_embedded_product_checkout_session');
 
-        $shirtPrice = self::stripe()->prices->create([
+        $shirtPrice = self::square()->prices->create([
             'currency' => 'USD',
             'product_data' => [
                 'name' => 'T-shirt',

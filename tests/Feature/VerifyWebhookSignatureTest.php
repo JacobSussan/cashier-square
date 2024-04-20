@@ -122,7 +122,7 @@ class VerifyWebhookSignatureTest extends TestCase
 
     public function withSignature($signature)
     {
-        $this->request->headers->set('Stripe-Signature', 't='.$this->timestamp.',v1='.$signature);
+        $this->request->headers->set('Square-Signature', 't='.$this->timestamp.',v1='.$signature);
 
         return $this;
     }

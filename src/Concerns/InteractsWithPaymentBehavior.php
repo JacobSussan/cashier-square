@@ -2,7 +2,7 @@
 
 namespace Laravel\Cashier\Concerns;
 
-use Stripe\Subscription as StripeSubscription;
+use Square\Models\Subscription as SquareSubscription;
 
 trait InteractsWithPaymentBehavior
 {
@@ -11,7 +11,7 @@ trait InteractsWithPaymentBehavior
      *
      * @var string
      */
-    protected $paymentBehavior = StripeSubscription::PAYMENT_BEHAVIOR_DEFAULT_INCOMPLETE;
+    protected $paymentBehavior = SquareSubscription::PAYMENT_BEHAVIOR_DEFAULT_INCOMPLETE;
 
     /**
      * Set any new subscription as incomplete when created.
@@ -20,7 +20,7 @@ trait InteractsWithPaymentBehavior
      */
     public function defaultIncomplete()
     {
-        $this->paymentBehavior = StripeSubscription::PAYMENT_BEHAVIOR_DEFAULT_INCOMPLETE;
+        $this->paymentBehavior = SquareSubscription::PAYMENT_BEHAVIOR_DEFAULT_INCOMPLETE;
 
         return $this;
     }
@@ -32,7 +32,7 @@ trait InteractsWithPaymentBehavior
      */
     public function allowPaymentFailures()
     {
-        $this->paymentBehavior = StripeSubscription::PAYMENT_BEHAVIOR_ALLOW_INCOMPLETE;
+        $this->paymentBehavior = SquareSubscription::PAYMENT_BEHAVIOR_ALLOW_INCOMPLETE;
 
         return $this;
     }
@@ -44,7 +44,7 @@ trait InteractsWithPaymentBehavior
      */
     public function pendingIfPaymentFails()
     {
-        $this->paymentBehavior = StripeSubscription::PAYMENT_BEHAVIOR_PENDING_IF_INCOMPLETE;
+        $this->paymentBehavior = SquareSubscription::PAYMENT_BEHAVIOR_PENDING_IF_INCOMPLETE;
 
         return $this;
     }
@@ -56,7 +56,7 @@ trait InteractsWithPaymentBehavior
      */
     public function errorIfPaymentFails()
     {
-        $this->paymentBehavior = StripeSubscription::PAYMENT_BEHAVIOR_ERROR_IF_INCOMPLETE;
+        $this->paymentBehavior = SquareSubscription::PAYMENT_BEHAVIOR_ERROR_IF_INCOMPLETE;
 
         return $this;
     }

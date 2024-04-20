@@ -28,18 +28,18 @@ class PaymentController extends Controller
      */
     public function show($id)
     {
-        $payment = new Payment(Cashier::stripe()->paymentIntents->retrieve(
+        $payment = new Payment(Cashier::square()->paymentIntents->retrieve(
             $id, ['expand' => ['payment_method']])
         );
 
-        $paymentIntent = Arr::only($payment->asStripePaymentIntent()->toArray(), [
+        $paymentIntent = Arr::only($payment->asSquarePaymentIntent()->toArray(), [
             'id', 'status', 'payment_method_types', 'client_secret', 'payment_method',
         ]);
 
         $paymentIntent['payment_method'] = Arr::only($paymentIntent['payment_method'] ?? [], 'id');
 
         return view('cashier::payment', [
-            'stripeKey' => config('cashier.key'),
+            'squareKey' => config('cashier.key'),
             'amount' => $payment->amount(),
             'payment' => $payment,
             'paymentIntent' => array_filter($paymentIntent),

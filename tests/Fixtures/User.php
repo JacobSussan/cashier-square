@@ -17,11 +17,11 @@ class User extends Model
     protected $guarded = [];
 
     /**
-     * Get the address to sync with Stripe.
+     * Get the address to sync with Square.
      *
      * @return array|null
      */
-    public function stripeAddress()
+    public function squareAddress()
     {
         return [
             'city' => 'Little Rock',

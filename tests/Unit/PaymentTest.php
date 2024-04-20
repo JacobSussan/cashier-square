@@ -4,8 +4,8 @@ namespace Laravel\Cashier\Tests\Unit;
 
 use Laravel\Cashier\Payment;
 use PHPUnit\Framework\TestCase;
-use Stripe\PaymentIntent as StripePaymentIntent;
-use Stripe\Subscription as StripeSubscription;
+use Square\Models\Payment as SquarePayment;
+use Square\Models\Subscription as SquareSubscription;
 
 class PaymentTest extends TestCase
 {
@@ -30,7 +30,7 @@ class PaymentTest extends TestCase
     public function test_it_can_return_its_canceled_status()
     {
         $paymentIntent = new PaymentIntent();
-        $paymentIntent->status = StripeSubscription::STATUS_CANCELED;
+        $paymentIntent->status = SquareSubscription::STATUS_CANCELED;
         $payment = new Payment($paymentIntent);
 
         $this->assertTrue($payment->isCanceled());
@@ -45,7 +45,7 @@ class PaymentTest extends TestCase
         $this->assertTrue($payment->isSucceeded());
     }
 
-    public function test_method_calls_are_forward_to_the_stripe_object()
+    public function test_method_calls_are_forward_to_the_square_object()
     {
         $payment = new Payment(new PaymentIntent());
 
@@ -53,7 +53,7 @@ class PaymentTest extends TestCase
     }
 }
 
-class PaymentIntent extends StripePaymentIntent
+class PaymentIntent extends SquarePaymentIntent
 {
     public $cancelled = false;
 

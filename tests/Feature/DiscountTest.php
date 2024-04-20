@@ -44,12 +44,12 @@ class DiscountTest extends FeatureTestCase
 
         parent::setUpBeforeClass();
 
-        static::$productId = self::stripe()->products->create([
+        static::$productId = self::square()->products->create([
             'name' => 'Laravel Cashier Test Product',
             'type' => 'service',
         ])->id;
 
-        static::$priceId = self::stripe()->prices->create([
+        static::$priceId = self::square()->prices->create([
             'product' => static::$productId,
             'nickname' => 'Monthly $10',
             'currency' => 'USD',
@@ -60,20 +60,20 @@ class DiscountTest extends FeatureTestCase
             'unit_amount' => 1000,
         ])->id;
 
-        static::$couponId = self::stripe()->coupons->create([
+        static::$couponId = self::square()->coupons->create([
             'duration' => 'repeating',
             'amount_off' => 500,
             'duration_in_months' => 3,
             'currency' => 'USD',
         ])->id;
 
-        static::$secondCouponId = self::stripe()->coupons->create([
+        static::$secondCouponId = self::square()->coupons->create([
             'duration' => 'once',
             'percent_off' => 20,
             'currency' => 'USD',
         ])->id;
 
-        static::$promotionCodeId = self::stripe()->promotionCodes->create([
+        static::$promotionCodeId = self::square()->promotionCodes->create([
             'coupon' => static::$secondCouponId,
             'code' => static::$promotionCodeCode = Str::random(16),
         ])->id;
@@ -124,7 +124,7 @@ class DiscountTest extends FeatureTestCase
         $this->assertEquals(static::$promotionCodeCode, $promotionCode->code);
 
         // Inactive promotion codes aren't retrieved with the "active only" method...
-        $inactivePromotionCode = $user->stripe()->promotionCodes->create([
+        $inactivePromotionCode = $user->square()->promotionCodes->create([
             'active' => false,
             'coupon' => static::$couponId,
             'code' => 'NEWYEAR',

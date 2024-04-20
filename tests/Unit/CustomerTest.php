@@ -55,22 +55,22 @@ class CustomerTest extends TestCase
         $this->assertNull($user->defaultPaymentMethod());
     }
 
-    public function test_stripe_customer_method_throws_exception_when_stripe_id_is_not_set()
+    public function test_square_customer_method_throws_exception_when_square_id_is_not_set()
     {
         $user = new User;
 
         $this->expectException(InvalidCustomer::class);
 
-        $user->asStripeCustomer();
+        $user->asSquareCustomer();
     }
 
-    public function test_stripe_customer_cannot_be_created_when_stripe_id_is_already_set()
+    public function test_square_customer_cannot_be_created_when_square_id_is_already_set()
     {
         $user = new User();
-        $user->stripe_id = 'foo';
+        $user->square_id = 'foo';
 
         $this->expectException(CustomerAlreadyCreated::class);
 
-        $user->createAsStripeCustomer();
+        $user->createAsSquareCustomer();
     }
 }

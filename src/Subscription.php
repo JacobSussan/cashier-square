@@ -17,7 +17,7 @@ use Laravel\Cashier\Database\Factories\SubscriptionFactory;
 use Laravel\Cashier\Exceptions\IncompletePayment;
 use Laravel\Cashier\Exceptions\SubscriptionUpdateFailure;
 use LogicException;
-use Stripe\Subscription as StripeSubscription;
+use Square\Subscription as SquareSubscription;
 
 /**
  * @property \Laravel\Cashier\Billable|\Illuminate\Database\Eloquent\Model $owner
@@ -101,7 +101,7 @@ class Subscription extends Model
      */
     public function hasMultiplePrices()
     {
-        return is_null($this->stripe_price);
+        return is_null($this->square_price);
     }
 
     /**
@@ -123,7 +123,7 @@ class Subscription extends Model
     public function hasProduct($product)
     {
         return $this->items->contains(function (SubscriptionItem $item) use ($product) {
-            return $item->stripe_product === $product;
+            return $item->square_product === $product;
         });
     }
 
@@ -137,24 +137,24 @@ class Subscription extends Model
     {
         if ($this->hasMultiplePrices()) {
             return $this->items->contains(function (SubscriptionItem $item) use ($price) {
-                return $item->stripe_price === $price;
+                return $item->square_price === $price;
             });
         }
 
-        return $this->stripe_price === $price;
+        return $this->square_price === $price;
     }
 
     /**
      * Get the subscription item for the given price.
      *
      * @param  string  $price
-     * @return \Laravel\Cashier\SubscriptionItem
+     * @return \App\SubscriptionItem
      *
      * @throws \Illuminate\Database\Eloquent\ModelNotFoundException
      */
     public function findItemOrFail($price)
     {
-        return $this->items()->where('stripe_price', $price)->firstOrFail();
+        return $this->items()->where('square_price', $price)->firstOrFail();
     }
 
     /**
@@ -174,7 +174,7 @@ class Subscription extends Model
      */
     public function incomplete()
     {
-        return $this->stripe_status === StripeSubscription::STATUS_INCOMPLETE;
+        return $this->square_status === SquareSubscription::STATUS_INCOMPLETE;
     }
 
     /**
@@ -185,7 +185,7 @@ class Subscription extends Model
      */
     public function scopeIncomplete($query)
     {
-        $query->where('stripe_status', StripeSubscription::STATUS_INCOMPLETE);
+        $query->where('square_status', SquareSubscription::STATUS_INCOMPLETE);
     }
 
     /**
@@ -195,7 +195,7 @@ class Subscription extends Model
      */
     public function pastDue()
     {
-        return $this->stripe_status === StripeSubscription::STATUS_PAST_DUE;
+        return $this->square_status === SquareSubscription::STATUS_PAST_DUE;
     }
 
     /**
@@ -206,7 +206,7 @@ class Subscription extends Model
      */
     public function scopePastDue($query)
     {
-        $query->where('stripe_status', StripeSubscription::STATUS_PAST_DUE);
+        $query->where('square_status', SquareSubscription::STATUS_PAST_DUE);
     }
 
     /**
@@ -217,10 +217,10 @@ class Subscription extends Model
     public function active()
     {
         return ! $this->ended() &&
-            (! Cashier::$deactivateIncomplete || $this->stripe_status !== StripeSubscription::STATUS_INCOMPLETE) &&
-            $this->stripe_status !== StripeSubscription::STATUS_INCOMPLETE_EXPIRED &&
-            (! Cashier::$deactivatePastDue || $this->stripe_status !== StripeSubscription::STATUS_PAST_DUE) &&
-            $this->stripe_status !== StripeSubscription::STATUS_UNPAID;
+            (! Cashier::$deactivateIncomplete || $this->square_status !== SquareSubscription::STATUS_INCOMPLETE) &&
+            $this->square_status !== SquareSubscription::STATUS_INCOMPLETE_EXPIRED &&
+            (! Cashier::$deactivatePastDue || $this->square_status !== SquareSubscription::STATUS_PAST_DUE) &&
+            $this->square_status !== SquareSubscription::STATUS_UNPAID;
     }
 
     /**
@@ -236,28 +236,28 @@ class Subscription extends Model
                 ->orWhere(function ($query) {
                     $query->onGracePeriod();
                 });
-        })->where('stripe_status', '!=', StripeSubscription::STATUS_INCOMPLETE_EXPIRED)
-            ->where('stripe_status', '!=', StripeSubscription::STATUS_UNPAID);
+        })->where('square_status', '!=', SquareSubscription::STATUS_INCOMPLETE_EXPIRED)
+            ->where('square_status', '!=', SquareSubscription::STATUS_UNPAID);
 
         if (Cashier::$deactivatePastDue) {
-            $query->where('stripe_status', '!=', StripeSubscription::STATUS_PAST_DUE);
+            $query->where('square_status', '!=', SquareSubscription::STATUS_PAST_DUE);
         }
 
         if (Cashier::$deactivateIncomplete) {
-            $query->where('stripe_status', '!=', StripeSubscription::STATUS_INCOMPLETE);
+            $query->where('square_status', '!=', SquareSubscription::STATUS_INCOMPLETE);
         }
     }
 
     /**
-     * Sync the Stripe status of the subscription.
+     * Sync the Square status of the subscription.
      *
      * @return void
      */
-    public function syncStripeStatus()
+    public function syncSquareStatus()
     {
-        $subscription = $this->asStripeSubscription();
+        $subscription = $this->asSquareSubscription();
 
-        $this->stripe_status = $subscription->status;
+        $this->square_status = $subscription->status;
 
         $this->save();
     }
@@ -501,7 +501,7 @@ class Subscription extends Model
      * @param  string|null  $price
      * @return $this
      *
-     * @throws \Laravel\Cashier\Exceptions\SubscriptionUpdateFailure
+     * @throws \Square\Exceptions\SubscriptionUpdateFailure
      */
     public function updateQuantity($quantity, $price = null)
     {
@@ -518,7 +518,7 @@ class Subscription extends Model
 
         $this->guardAgainstMultiplePrices();
 
-        $stripeSubscription = $this->updateStripeSubscription([
+        $squareSubscription = $this->updateSquareSubscription([
             'payment_behavior' => $this->paymentBehavior(),
             'proration_behavior' => $this->prorateBehavior(),
             'quantity' => $quantity,
@@ -526,8 +526,8 @@ class Subscription extends Model
         ]);
 
         $this->fill([
-            'stripe_status' => $stripeSubscription->status,
-            'quantity' => $stripeSubscription->quantity,
+            'square_status' => $squareSubscription->status,
+            'quantity' => $squareSubscription->quantity,
         ])->save();
 
         $this->handlePaymentFailure($this);
@@ -541,7 +541,7 @@ class Subscription extends Model
      * @param  int  $quantity
      * @param  \DateTimeInterface|int|null  $timestamp
      * @param  string|null  $price
-     * @return \Stripe\UsageRecord
+     * @return \Square\UsageRecord
      */
     public function reportUsage($quantity = 1, $timestamp = null, $price = null)
     {
@@ -549,7 +549,7 @@ class Subscription extends Model
             $this->guardAgainstMultiplePrices();
         }
 
-        return $this->findItemOrFail($price ?? $this->stripe_price)->reportUsage($quantity, $timestamp);
+        return $this->findItemOrFail($price ?? $this->square_price)->reportUsage($quantity, $timestamp);
     }
 
     /**
@@ -558,7 +558,7 @@ class Subscription extends Model
      * @param  string  $price
      * @param  int  $quantity
      * @param  \DateTimeInterface|int|null  $timestamp
-     * @return \Stripe\UsageRecord
+     * @return \Square\UsageRecord
      */
     public function reportUsageFor($price, $quantity = 1, $timestamp = null)
     {
@@ -578,7 +578,7 @@ class Subscription extends Model
             $this->guardAgainstMultiplePrices();
         }
 
-        return $this->findItemOrFail($price ?? $this->stripe_price)->usageRecords($options);
+        return $this->findItemOrFail($price ?? $this->square_price)->usageRecords($options);
     }
 
     /**
@@ -635,7 +635,7 @@ class Subscription extends Model
             return $this;
         }
 
-        $this->updateStripeSubscription([
+        $this->updateSquareSubscription([
             'trial_end' => 'now',
             'proration_behavior' => $this->prorateBehavior(),
         ]);
@@ -659,93 +659,93 @@ class Subscription extends Model
             throw new InvalidArgumentException("Extending a subscription's trial requires a date in the future.");
         }
 
-        $this->updateStripeSubscription([
+        $this->updateSquareSubscription([
             'trial_end' => $date->getTimestamp(),
             'proration_behavior' => $this->prorateBehavior(),
         ]);
-
+    
         $this->trial_ends_at = $date;
-
+    
         $this->save();
-
+    
         return $this;
     }
-
+    
     /**
-     * Swap the subscription to new Stripe prices.
+     * Swap the subscription to new Square prices.
      *
      * @param  string|array  $prices
      * @param  array  $options
      * @return $this
      *
-     * @throws \Laravel\Cashier\Exceptions\IncompletePayment
-     * @throws \Laravel\Cashier\Exceptions\SubscriptionUpdateFailure
+     * @throws \Square\Exceptions\IncompletePayment
+     * @throws \Square\Exceptions\SubscriptionUpdateFailure
      */
     public function swap($prices, array $options = [])
     {
         if (empty($prices = (array) $prices)) {
             throw new InvalidArgumentException('Please provide at least one price when swapping.');
         }
-
+    
         $this->guardAgainstIncomplete();
-
+    
         $items = $this->mergeItemsThatShouldBeDeletedDuringSwap(
             $this->parseSwapPrices($prices)
         );
-
-        $stripeSubscription = $this->owner->stripe()->subscriptions->update(
-            $this->stripe_id, $this->getSwapOptions($items, $options)
+    
+        $squareSubscription = $this->owner->square()->subscriptions->update(
+            $this->square_id, $this->getSwapOptions($items, $options)
         );
-
-        /** @var \Stripe\SubscriptionItem $firstItem */
-        $firstItem = $stripeSubscription->items->first();
-        $isSinglePrice = $stripeSubscription->items->count() === 1;
-
+    
+        /** @var \Square\SubscriptionItem $firstItem */
+        $firstItem = $squareSubscription->items->first();
+        $isSinglePrice = $squareSubscription->items->count() === 1;
+    
         $this->fill([
-            'stripe_status' => $stripeSubscription->status,
-            'stripe_price' => $isSinglePrice ? $firstItem->price->id : null,
+            'square_status' => $squareSubscription->status,
+            'square_price' => $isSinglePrice ? $firstItem->price->id : null,
             'quantity' => $isSinglePrice ? ($firstItem->quantity ?? null) : null,
             'ends_at' => null,
         ])->save();
-
+    
         $subscriptionItemIds = [];
-
-        foreach ($stripeSubscription->items as $item) {
+    
+        foreach ($squareSubscription->items as $item) {
             $subscriptionItemIds[] = $item->id;
-
+    
             $this->items()->updateOrCreate([
-                'stripe_id' => $item->id,
+                'square_id' => $item->id,
             ], [
-                'stripe_product' => $item->price->product,
-                'stripe_price' => $item->price->id,
+                'square_product' => $item->price->product,
+                'square_price' => $item->price->id,
                 'quantity' => $item->quantity ?? null,
             ]);
         }
-
+    
         // Delete items that aren't attached to the subscription anymore...
-        $this->items()->whereNotIn('stripe_id', $subscriptionItemIds)->delete();
-
+        $this->items()->whereNotIn('square_id', $subscriptionItemIds)->delete();
+    
         $this->unsetRelation('items');
-
+    
         $this->handlePaymentFailure($this);
-
+    
         return $this;
     }
-
+    
     /**
-     * Swap the subscription to new Stripe prices, and invoice immediately.
+     * Swap the subscription to new Square prices, and invoice immediately.
      *
      * @param  string|array  $prices
      * @param  array  $options
      * @return $this
      *
-     * @throws \Laravel\Cashier\Exceptions\IncompletePayment
-     * @throws \Laravel\Cashier\Exceptions\SubscriptionUpdateFailure
+     * @throws \Square\Exceptions\IncompletePayment
+     * @throws \Square\Exceptions\SubscriptionUpdateFailure
      */
     public function swapAndInvoice($prices, array $options = [])
     {
         $this->alwaysInvoice();
-
+    
         return $this->swap($prices, $options);
     }
 
@@ -788,19 +788,19 @@ class Subscription extends Model
      */
     protected function mergeItemsThatShouldBeDeletedDuringSwap(Collection $items)
     {
-        /** @var \Stripe\SubscriptionItem $stripeSubscriptionItem */
-        foreach ($this->asStripeSubscription()->items->data as $stripeSubscriptionItem) {
-            $price = $stripeSubscriptionItem->price;
+        /** @var \Square\Models\SubscriptionItem $squareSubscriptionItem */
+        foreach ($this->asSquareSubscription()->items as $squareSubscriptionItem) {
+            $plan = $squareSubscriptionItem->getPlan();
 
-            if (! $item = $items->get($price->id, [])) {
+            if (! $item = $items->get($plan->getId(), [])) {
                 $item['deleted'] = true;
 
-                if ($price->recurring->usage_type == 'metered') {
+                if ($plan->getRecurring()->getUsageType() == 'metered') {
                     $item['clear_usage'] = true;
                 }
             }
 
-            $items->put($price->id, $item + ['id' => $stripeSubscriptionItem->id]);
+            $items->put($plan->getId(), $item + ['id' => $squareSubscriptionItem->getId()]);
         }
 
         return $items;
@@ -823,7 +823,7 @@ class Subscription extends Model
             'expand' => ['latest_invoice.payment_intent'],
         ]);
 
-        if ($payload['payment_behavior'] !== StripeSubscription::PAYMENT_BEHAVIOR_PENDING_IF_INCOMPLETE) {
+        if ($payload['payment_behavior'] !== SquareSubscription::PAYMENT_BEHAVIOR_PENDING_IF_INCOMPLETE) {
             $payload['cancel_at_period_end'] = false;
         }
 
@@ -841,7 +841,7 @@ class Subscription extends Model
     }
 
     /**
-     * Add a new Stripe price to the subscription.
+     * Add a new Square price to the subscription.
      *
      * @param  string  $price
      * @param  int|null  $quantity
@@ -854,13 +854,13 @@ class Subscription extends Model
     {
         $this->guardAgainstIncomplete();
 
-        if ($this->items->contains('stripe_price', $price)) {
+        if ($this->items->contains('square_price', $price)) {
             throw SubscriptionUpdateFailure::duplicatePrice($this, $price);
         }
 
-        $stripeSubscriptionItem = $this->owner->stripe()->subscriptionItems
+        $squareSubscriptionItem = $this->owner->square()->subscriptionItems
             ->create(array_filter(array_merge([
-                'subscription' => $this->stripe_id,
+                'subscription' => $this->square_id,
                 'price' => $price,
                 'quantity' => $quantity,
                 'tax_rates' => $this->getPriceTaxRatesForPayload($price),
@@ -869,25 +869,25 @@ class Subscription extends Model
             ], $options)));
 
         $this->items()->create([
-            'stripe_id' => $stripeSubscriptionItem->id,
-            'stripe_product' => $stripeSubscriptionItem->price->product,
-            'stripe_price' => $stripeSubscriptionItem->price->id,
-            'quantity' => $stripeSubscriptionItem->quantity ?? null,
+            'square_id' => $squareSubscriptionItem->id,
+            'square_product' => $squareSubscriptionItem->price->product,
+            'square_price' => $squareSubscriptionItem->price->id,
+            'quantity' => $squareSubscriptionItem->quantity ?? null,
         ]);
 
         $this->unsetRelation('items');
 
-        $stripeSubscription = $this->asStripeSubscription();
+        $squareSubscription = $this->asSquareSubscription();
 
         if ($this->hasSinglePrice()) {
             $this->fill([
-                'stripe_price' => null,
+                'square_price' => null,
                 'quantity' => null,
             ]);
         }
 
         $this->fill([
-            'stripe_status' => $stripeSubscription->status,
+            'square_status' => $squareSubscription->status,
         ])->save();
 
         $this->handlePaymentFailure($this);
@@ -896,7 +896,7 @@ class Subscription extends Model
     }
 
     /**
-     * Add a new Stripe price to the subscription, and invoice immediately.
+     * Add a new Square price to the subscription, and invoice immediately.
      *
      * @param  string  $price
      * @param  int  $quantity
@@ -914,7 +914,7 @@ class Subscription extends Model
     }
 
     /**
-     * Add a new Stripe metered price to the subscription.
+     * Add a new Square metered price to the subscription.
      *
      * @param  string  $price
      * @param  array  $options
@@ -928,7 +928,7 @@ class Subscription extends Model
     }
 
     /**
-     * Add a new Stripe metered price to the subscription, and invoice immediately.
+     * Add a new Square metered price to the subscription, and invoice immediately.
      *
      * @param  string  $price
      * @param  array  $options
@@ -943,7 +943,7 @@ class Subscription extends Model
     }
 
     /**
-     * Remove a Stripe price from the subscription.
+     * Remove a Square price from the subscription.
      *
      * @param  string  $price
      * @return $this
@@ -956,14 +956,14 @@ class Subscription extends Model
             throw SubscriptionUpdateFailure::cannotDeleteLastPrice($this);
         }
 
-        $stripeItem = $this->findItemOrFail($price)->asStripeSubscriptionItem();
+        $squareItem = $this->findItemOrFail($price)->asSquareSubscriptionItem();
 
-        $stripeItem->delete(array_filter([
-            'clear_usage' => $stripeItem->price->recurring->usage_type === 'metered' ? true : null,
+        $squareItem->delete(array_filter([
+            'clear_usage' => $squareItem->price->recurring->usage_type === 'metered' ? true : null,
             'proration_behavior' => $this->prorateBehavior(),
         ]));
 
-        $this->items()->where('stripe_price', $price)->delete();
+        $this->items()->where('square_price', $price)->delete();
 
         $this->unsetRelation('items');
 
@@ -971,7 +971,7 @@ class Subscription extends Model
             $item = $this->items()->first();
 
             $this->fill([
-                'stripe_price' => $item->stripe_price,
+                'square_price' => $item->square_price,
                 'quantity' => $item->quantity,
             ])->save();
         }
@@ -986,11 +986,11 @@ class Subscription extends Model
      */
     public function cancel()
     {
-        $stripeSubscription = $this->updateStripeSubscription([
+        $squareSubscription = $this->updateSquareSubscription([
             'cancel_at_period_end' => true,
         ]);
 
-        $this->stripe_status = $stripeSubscription->status;
+        $this->square_status = $squareSubscription->status;
 
         // If the user was on trial, we will set the grace period to end when the trial
         // would have ended. Otherwise, we'll retrieve the end of the billing period
@@ -999,7 +999,7 @@ class Subscription extends Model
             $this->ends_at = $this->trial_ends_at;
         } else {
             $this->ends_at = Carbon::createFromTimestamp(
-                $stripeSubscription->current_period_end
+                $squareSubscription->current_period_end
             );
         }
 
@@ -1020,14 +1020,14 @@ class Subscription extends Model
             $endsAt = $endsAt->getTimestamp();
         }
 
-        $stripeSubscription = $this->updateStripeSubscription([
+        $squareSubscription = $this->updateSquareSubscription([
             'cancel_at' => $endsAt,
             'proration_behavior' => $this->prorateBehavior(),
         ]);
 
-        $this->stripe_status = $stripeSubscription->status;
+        $this->square_status = $squareSubscription->status;
 
-        $this->ends_at = Carbon::createFromTimestamp($stripeSubscription->cancel_at);
+        $this->ends_at = Carbon::createFromTimestamp($squareSubscription->cancel_at);
 
         $this->save();
 
@@ -1041,7 +1041,7 @@ class Subscription extends Model
      */
     public function cancelNow()
     {
-        $this->owner->stripe()->subscriptions->cancel($this->stripe_id, [
+        $this->owner->square()->subscriptions->cancel($this->square_id, [
             'prorate' => $this->prorateBehavior() === 'create_prorations',
         ]);
 
@@ -1057,7 +1057,7 @@ class Subscription extends Model
      */
     public function cancelNowAndInvoice()
     {
-        $this->owner->stripe()->subscriptions->cancel($this->stripe_id, [
+        $this->owner->square()->subscriptions->cancel($this->square_id, [
             'invoice_now' => true,
             'prorate' => $this->prorateBehavior() === 'create_prorations',
         ]);
@@ -1077,7 +1077,7 @@ class Subscription extends Model
     public function markAsCanceled()
     {
         $this->fill([
-            'stripe_status' => StripeSubscription::STATUS_CANCELED,
+            'square_status' => SquareSubscription::STATUS_CANCELED,
             'ends_at' => Carbon::now(),
         ])->save();
     }
@@ -1095,7 +1095,7 @@ class Subscription extends Model
             throw new LogicException('Unable to resume subscription that is not within grace period.');
         }
 
-        $stripeSubscription = $this->updateStripeSubscription([
+        $squareSubscription = $this->updateSquareSubscription([
             'cancel_at_period_end' => false,
             'trial_end' => $this->onTrial() ? $this->trial_ends_at->getTimestamp() : 'now',
         ]);
@@ -1104,7 +1104,7 @@ class Subscription extends Model
         // local database to indicate that the subscription is active again and is
         // no longer "canceled". Then we shall save this record in the database.
         $this->fill([
-            'stripe_status' => $stripeSubscription->status,
+            'square_status' => $squareSubscription->status,
             'ends_at' => null,
         ])->save();
 
@@ -1118,7 +1118,7 @@ class Subscription extends Model
      */
     public function pending()
     {
-        return ! is_null($this->asStripeSubscription()->pending_update);
+        return ! is_null($this->asSquareSubscription()->pending_update);
     }
 
     /**
@@ -1132,11 +1132,11 @@ class Subscription extends Model
     public function invoice(array $options = [])
     {
         try {
-            return $this->user->invoice(array_merge($options, ['subscription' => $this->stripe_id]));
+            return $this->user->invoice(array_merge($options, ['subscription' => $this->square_id]));
         } catch (IncompletePayment $exception) {
-            // Set the new Stripe subscription status immediately when payment fails...
+            // Set the new Square subscription status immediately when payment fails...
             $this->fill([
-                'stripe_status' => $exception->payment->invoice->subscription->status,
+                'square_status' => $exception->payment->invoice->subscription->status,
             ])->save();
 
             throw $exception;
@@ -1150,10 +1150,10 @@ class Subscription extends Model
      */
     public function latestInvoice(array $expand = [])
     {
-        $stripeSubscription = $this->asStripeSubscription(['latest_invoice', ...$expand]);
+        $squareSubscription = $this->asSquareSubscription(['latest_invoice', ...$expand]);
 
-        if ($stripeSubscription->latest_invoice) {
-            return new Invoice($this->owner, $stripeSubscription->latest_invoice);
+        if ($squareSubscription->latest_invoice) {
+            return new Invoice($this->owner, $squareSubscription->latest_invoice);
         }
     }
 
@@ -1170,12 +1170,12 @@ class Subscription extends Model
         }
 
         return $this->owner->upcomingInvoice(array_merge([
-            'subscription' => $this->stripe_id,
+            'subscription' => $this->square_id,
         ], $options));
     }
 
     /**
-     * Preview the upcoming invoice with new Stripe prices.
+     * Preview the upcoming invoice with new Square prices.
      *
      * @param  string|array  $prices
      * @param  array  $options
@@ -1220,7 +1220,7 @@ class Subscription extends Model
     public function invoices($includePending = false, $parameters = [])
     {
         return $this->owner->invoices(
-            $includePending, array_merge($parameters, ['subscription' => $this->stripe_id])
+            $includePending, array_merge($parameters, ['subscription' => $this->square_id])
         );
     }
 
@@ -1242,21 +1242,21 @@ class Subscription extends Model
      */
     public function syncTaxRates()
     {
-        $this->updateStripeSubscription([
+        $this->updateSquareSubscription([
             'default_tax_rates' => $this->user->taxRates() ?: null,
             'proration_behavior' => $this->prorateBehavior(),
         ]);
 
         foreach ($this->items as $item) {
-            $item->updateStripeSubscriptionItem([
-                'tax_rates' => $this->getPriceTaxRatesForPayload($item->stripe_price) ?: null,
+            $item->updateSquareSubscriptionItem([
+                'tax_rates' => $this->getPriceTaxRatesForPayload($item->square_price) ?: null,
                 'proration_behavior' => $this->prorateBehavior(),
             ]);
         }
     }
 
     /**
-     * Get the price tax rates for the Stripe payload.
+     * Get the price tax rates for the Square payload.
      *
      * @param  string  $price
      * @return array|null
@@ -1285,7 +1285,7 @@ class Subscription extends Model
      */
     public function latestPayment()
     {
-        $subscription = $this->asStripeSubscription(['latest_invoice.payment_intent']);
+        $subscription = $this->asSquareSubscription(['latest_invoice.payment_intent']);
 
         if ($invoice = $subscription->latest_invoice) {
             return $invoice->payment_intent
@@ -1301,7 +1301,7 @@ class Subscription extends Model
      */
     public function discount()
     {
-        $subscription = $this->asStripeSubscription(['discount.promotion_code']);
+        $subscription = $this->asSquareSubscription(['discount.promotion_code']);
 
         return $subscription->discount
             ? new Discount($subscription->discount)
@@ -1316,7 +1316,7 @@ class Subscription extends Model
      */
     public function applyCoupon($coupon)
     {
-        $this->updateStripeSubscription([
+        $this->updateSquareSubscription([
             'coupon' => $coupon,
         ]);
     }
@@ -1329,7 +1329,7 @@ class Subscription extends Model
      */
     public function applyPromotionCode($promotionCodeId)
     {
-        $this->updateStripeSubscription([
+        $this->updateSquareSubscription([
             'promotion_code' => $promotionCodeId,
         ]);
     }
@@ -1365,28 +1365,28 @@ class Subscription extends Model
     }
 
     /**
-     * Update the underlying Stripe subscription information for the model.
+     * Update the underlying Square subscription information for the model.
      *
      * @param  array  $options
-     * @return \Stripe\Subscription
+     * @return \Square\Subscription
      */
-    public function updateStripeSubscription(array $options = [])
+    public function updateSquareSubscription(array $options = [])
     {
-        return $this->owner->stripe()->subscriptions->update(
-            $this->stripe_id, $options
+        return $this->owner->square()->subscriptions->update(
+            $this->square_id, $options
         );
     }
 
     /**
-     * Get the subscription as a Stripe subscription object.
+     * Get the subscription as a Square subscription object.
      *
      * @param  array  $expand
-     * @return \Stripe\Subscription
+     * @return \Square\Subscription
      */
-    public function asStripeSubscription(array $expand = [])
+    public function asSquareSubscription(array $expand = [])
     {
-        return $this->owner->stripe()->subscriptions->retrieve(
-            $this->stripe_id, ['expand' => $expand]
+        return $this->owner->square()->subscriptions->retrieve(
+            $this->square_id, ['expand' => $expand]
         );
     }
 

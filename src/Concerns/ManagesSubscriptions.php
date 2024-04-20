@@ -22,7 +22,7 @@ trait ManagesSubscriptions
     }
 
     /**
-     * Determine if the Stripe model is on trial.
+     * Determine if the Square model is on trial.
      *
      * @param  string  $type
      * @param  string|null  $price
@@ -44,7 +44,7 @@ trait ManagesSubscriptions
     }
 
     /**
-     * Determine if the Stripe model's trial has ended.
+     * Determine if the Square model's trial has ended.
      *
      * @param  string  $type
      * @param  string|null  $price
@@ -66,7 +66,7 @@ trait ManagesSubscriptions
     }
 
     /**
-     * Determine if the Stripe model is on a "generic" trial at the model level.
+     * Determine if the Square model is on a "generic" trial at the model level.
      *
      * @return bool
      */
@@ -87,7 +87,7 @@ trait ManagesSubscriptions
     }
 
     /**
-     * Determine if the Stripe model's "generic" trial at the model level has expired.
+     * Determine if the Square model's "generic" trial at the model level has expired.
      *
      * @return bool
      */
@@ -127,7 +127,7 @@ trait ManagesSubscriptions
     }
 
     /**
-     * Determine if the Stripe model has a given subscription.
+     * Determine if the Square model has a given subscription.
      *
      * @param  string  $type
      * @param  string|null  $price
@@ -156,7 +156,7 @@ trait ManagesSubscriptions
     }
 
     /**
-     * Get all of the subscriptions for the Stripe model.
+     * Get all of the subscriptions for the Square model.
      *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
@@ -181,7 +181,7 @@ trait ManagesSubscriptions
     }
 
     /**
-     * Determine if the Stripe model is actively subscribed to one of the given products.
+     * Determine if the Square model is actively subscribed to one of the given products.
      *
      * @param  string|string[]  $products
      * @param  string  $type
@@ -205,7 +205,7 @@ trait ManagesSubscriptions
     }
 
     /**
-     * Determine if the Stripe model is actively subscribed to one of the given prices.
+     * Determine if the Square model is actively subscribed to one of the given prices.
      *
      * @param  string|string[]  $prices
      * @param  string  $type
